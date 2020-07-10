@@ -2,6 +2,7 @@ from .default_api import DefaultAPI
 from config import config
 
 import datetime
+import collections
 import json
 
 import asyncio
@@ -85,10 +86,20 @@ class BitmaxREST_API(DefaultAPI):
         }
         return headers
 
+Dispatcher = collections.namedtuple('Dispatcher', [
+    'func', 'name'
+])
+
 class BitmaxWebSocket:
+    class WSClosed(Exception):
+        pass
+
+    _dispatchers = None
+
     def __init__(self, url, api):
         self._url = url
         self._api = api
+        self._dispatchers = []
 
     @property
     def _api_token(self):
@@ -97,6 +108,16 @@ class BitmaxWebSocket:
     @property
     def _session(self):
         return self._api.session
+
+
+    def add_dispatcher(self, name=None):
+        def decorator(func):
+            dispatcher = Dispatcher(
+                func=func, name=name
+            )
+            self._dispatchers.append(dispatcher)
+            return func
+        return decorator
 
     async def __aenter__(self):
         headers = Util.make_headers('stream', self._api_token)
@@ -108,17 +129,33 @@ class BitmaxWebSocket:
         await self._ws_connection.close()
         # pass
 
+    async def send_json(self, op, data):
+        data['op'] = op
+        # pprint.pprint(data)
+        await self._ws_connection.send_json(data)
+
     async def dispatch(self, message):
-        print(message)
-        return message
+        if message.type != aiohttp.WSMsgType.TEXT:
+            raise ValueError(f'Non-text message\n{message}')
+        try:
+            data = message.json()
+            if data['m'] == 'ping':
+                await self.send_json(op='pong', data={})
+            else:
+                for dispatcher in self._dispatchers:
+                    result = dispatcher.func(data)
+        except ValueError as exc:
+            print(exc)
 
     async def handle_messages(self):
         while True:
             try:
-                message = await self._ws_connection.receive_json()
+                if self._ws_connection.closed:
+                    raise self.WSClosed('WebSocket apparently closed')
+
+                message = await self._ws_connection.receive()
                 message = await self.dispatch(message)
             except Exception as exc:
-
                 raise exc
 
 
@@ -131,7 +168,22 @@ if __name__ == '__main__':
         api = BitmaxREST_API(api_token=config['BITMAX']['KEY'])
         async with api:
             bitmax_ws = await api.connect_ws()
+
+
+            @bitmax_ws.add_dispatcher(name='handler')
+            def handler(msg):
+                global count_num
+                print(count_num)
+                pprint.pprint(msg)
+                count_num += 1
+
             async with bitmax_ws:
+                # account = await api.get('/info')
+                await bitmax_ws.send_json('sub', data={
+                    'ch': 'depth:BTMX/USDT'
+                })
+                global previous_ts
+                count_num = 0
                 await bitmax_ws.handle_messages()
 
 
