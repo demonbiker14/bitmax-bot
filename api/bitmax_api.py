@@ -143,7 +143,7 @@ class BitmaxWebSocket:
                 await self.send_json(op='pong', data={})
             else:
                 for dispatcher in self._dispatchers:
-                    result = dispatcher.func(data)
+                    asyncio.create_task(dispatcher.func(data))
         except ValueError as exc:
             print(exc)
 
@@ -171,19 +171,19 @@ if __name__ == '__main__':
 
 
             @bitmax_ws.add_dispatcher(name='handler')
-            def handler(msg):
-                global count_num
-                print(count_num)
+            async def handler(msg):
+                # global count_num
+                # print(count_num)
                 pprint.pprint(msg)
-                count_num += 1
+                # count_num += 1
 
             async with bitmax_ws:
                 # account = await api.get('/info')
                 await bitmax_ws.send_json('sub', data={
                     'ch': 'depth:BTMX/USDT'
                 })
-                global previous_ts
-                count_num = 0
+                # global previous_ts
+                # previous_ts = 0
                 await bitmax_ws.handle_messages()
 
 
