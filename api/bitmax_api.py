@@ -4,6 +4,8 @@ from config import config
 import datetime
 import collections
 import json
+import pprint
+import logging
 
 import asyncio
 import aiohttp
@@ -27,23 +29,31 @@ class Util:
         signature = base64.b64encode(signature.digest()).decode("utf-8")
         return signature
     @classmethod
-    def make_headers(cls, path, api_token):
-
+    def make_headers(cls, path, api_token, secret):
         timestamp = int(datetime.datetime.now().timestamp() * 1000)
         headers = {
             'x-auth-timestamp': str(timestamp),
-            "x-auth-signature": cls.get_signature(path, api_token),
+            "x-auth-signature": cls.get_signature(path, secret),
         }
         return headers
+    @classmethod
+    def gen_server_order_id(user_uid, cl_order_id, ts, order_src='s'):
+        return (order_src + format(ts, 'x')[-11:] + user_uid[-11:] + cl_order_id[-9:])[:32]
 
 class BitmaxREST_API(DefaultAPI):
     api_url = 'bitmax.io'
     api_path = '/api/pro/v1'
     account_group = None
 
-    def __init__(self, api_token, account_group=None):
+    def __init__(self, api_token, secret, account_group=None, logger=None):
         self.api_token = api_token
+        self._secret = secret
         self.account_group = None
+        self.user_uid = None
+        if not logger:
+            self._logger = logging.getLogger('bitmax_api')
+        else:
+            self._logger = logger
 
     async def create_session(self):
         headers = {
@@ -53,8 +63,15 @@ class BitmaxREST_API(DefaultAPI):
         self.session = session
 
     def get_signature(self, path):
-        sign = Util.get_signature(path, self.api_token)
+        sign = Util.get_signature(path, self._secret)
         return sign
+
+    async def get_uuid(self):
+        if self.uuid:
+            return self.uuid
+        else:
+            response = await self.get(path='/info')
+            self.uuid = response['data']['userUID']
 
     async def get_api_url(self, *args, **kwargs):
         group_needed = kwargs.get('group_needed', False)
@@ -64,6 +81,7 @@ class BitmaxREST_API(DefaultAPI):
             if not self.account_group:
                 response = await self.get('/info')
                 self.account_group = response['data']['accountGroup']
+                self.uuid = response['data']['userUID']
             return f'{method}{self.api_url}/{str(self.account_group)}{self.api_path}'
         else:
             return f'{method}{self.api_url}{self.api_path}'
@@ -77,14 +95,45 @@ class BitmaxREST_API(DefaultAPI):
         url = await self.get_ws_url(group_needed=True) + '/stream'
         return BitmaxWebSocket(url, self)
 
+    async def get_all_products(self):
+        return await self.get('/products')
+
     async def get_headers(self, path):
-        return Util.make_headers(path, self.api_token)
+        return Util.make_headers(path, self.api_token, self._secret)
 
         headers = {
             'x-auth-timestamp': str(timestamp),
             "x-auth-signature": self.get_signature(path),
         }
         return headers
+
+    async def place_order(self, symbol, size, order_type, order_side, price=None, post_only=False, resp_inst='ACK', time_in_force='GTC'):
+        timestamp = int(datetime.datetime.now().timestamp() * 1000)
+        data = {
+            # 'time': timestamp,
+            # 'coid': await self.get_uuid(),
+            # 'symbol': symbol,
+            #  'orderPrice': str(price),
+            # 'orderQty': str(size),
+            # 'orderType': order_type,
+            # 'side': order_side,
+            # 'postOnly': False,
+            # 'respInst': resp_inst,
+            # "id": "iGwzbzWxxcHwno4b8VCvh8aaYCJaPALm",
+            'time': timestamp,
+            'symbol': symbol,
+            'orderQty': str(size),
+            'orderType': order_type,
+            'side': order_side,
+            # 'id': "iGwzbzWxxcHwno4b8VCvh8aaYCJaPALm",
+            # 'timeInForce': time_in_force,
+            "respInst": 'ACK',
+        }
+        if order_type == 'limit':
+            data['orderPrice'] = str(price)
+        resp = await self.post(path='/cash/order', data=data, group_needed=True)
+        return resp
+        # pprint.pprint(resp)
 
 Dispatcher = collections.namedtuple('Dispatcher', [
     'func', 'name'
@@ -106,6 +155,10 @@ class BitmaxWebSocket:
         return self._api.api_token
 
     @property
+    def _secret(self):
+        return self._api._secret
+
+    @property
     def _session(self):
         return self._api.session
 
@@ -120,7 +173,7 @@ class BitmaxWebSocket:
         return decorator
 
     async def __aenter__(self):
-        headers = Util.make_headers('stream', self._api_token)
+        headers = Util.make_headers('stream', self._api_token, self._secret)
         self._ws_connection = await self._session.ws_connect(self._url, headers=headers)
         # self._ws = await self._ws_connection.__aenter__()
 
@@ -131,8 +184,10 @@ class BitmaxWebSocket:
 
     async def send_json(self, op, data):
         data['op'] = op
-        # pprint.pprint(data)
         await self._ws_connection.send_json(data)
+
+    async def receive_json(self):
+        return await self._ws_connection.receive_json()
 
     async def dispatch(self, message):
         if message.type != aiohttp.WSMsgType.TEXT:
@@ -145,7 +200,8 @@ class BitmaxWebSocket:
                 for dispatcher in self._dispatchers:
                     asyncio.create_task(dispatcher.func(data))
         except ValueError as exc:
-            print(exc)
+            logger.exception(exc)
+            raise exc
 
     async def handle_messages(self):
         while True:
@@ -165,26 +221,37 @@ if __name__ == '__main__':
 
 
     async def main():
-        api = BitmaxREST_API(api_token=config['BITMAX']['KEY'])
+        api = BitmaxREST_API(
+            api_token=config['BITMAX']['KEY'],
+            secret=config['BITMAX']['SECRET']
+        )
         async with api:
-            bitmax_ws = await api.connect_ws()
+            # bitmax_ws = await api.connect_ws()
+
+            # @bitmax_ws.add_dispatcher(name='handler')
+            # async def handler(msg):
+            #     pprint.pprint(msg)
 
 
-            @bitmax_ws.add_dispatcher(name='handler')
-            async def handler(msg):
-                # global count_num
-                # print(count_num)
-                pprint.pprint(msg)
-                # count_num += 1
-
-            async with bitmax_ws:
+            result = await api.place_order(
+                symbol='BTMX/USDT',
+                # price=0.02,
+                size=1,
+                order_type='market',
+                order_side='sell',
+                time_in_force='IOC'
+            )
+            pprint.pprint(result)
+            # async with bitmax_ws:
                 # account = await api.get('/info')
-                await bitmax_ws.send_json('sub', data={
-                    'ch': 'depth:BTMX/USDT'
-                })
+                # await bitmax_ws.send_json('sub', data={
+                #     'ch': 'depth:BTMX/USDT'
+                # })
                 # global previous_ts
                 # previous_ts = 0
-                await bitmax_ws.handle_messages()
+                # await bitmax_ws.handle_messages()
+                # await bitmax_ws.handle_messages()
+                # print(await bitmax_ws.receive_json())
 
 
     asyncio.run(main())

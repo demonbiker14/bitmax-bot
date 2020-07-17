@@ -29,6 +29,7 @@ class DefaultAPI:
 
     async def process_method(self, api_url, method, path, params=None, data=None, headers=None, *args, **kwargs):
         url = api_url + path
+        # print(url)
         if not headers:
             headers = {}
         init_headers = await self.get_headers(path)
@@ -38,7 +39,8 @@ class DefaultAPI:
         if method == 'get':
             response = await self.session.get(url, params=params, headers=headers)
         elif method == 'post':
-            response = await self.session.post(url, data=data, params=params, headers=headers)
+            # print(url, data, params, headers, sep='\n')
+            response = await self.session.post(url, json=data, params=params, headers=headers)
         elif method == 'delete':
             response = await self.session.delete(url, params=params, headers=headers)
         response = await response.json()
@@ -52,10 +54,10 @@ class DefaultAPI:
         response = await self.process_api_method('get', path, params=params, headers=headers, *args, **kwargs)
         return response
 
-    async def post(self, path, data, headers=None):
+    async def post(self, path, data, headers=None, params=None, *args, **kwargs):
         return await self.process_api_method('post', path, data=data, params=params, headers=headers, *args, **kwargs)
 
-    async def delete(self, path, data, headers=None):
+    async def delete(self, path, data, headers=None, *args, **kwargs):
         return await self.process_api_method('delete', path, data=data, params=params, headers=headers, *args, **kwargs)
 
 # class WebSocketAPI(self):
