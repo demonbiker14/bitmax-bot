@@ -17,7 +17,7 @@ class RestServer:
     class NotUSDTError(Exception):
         pass
 
-    def __init__(self, password, bot, host='localhost', port=8080):
+    def __init__(self, password, bot, host=config.host, port=config.port):
         self._host = host
         self._port = port
         self._password = password
