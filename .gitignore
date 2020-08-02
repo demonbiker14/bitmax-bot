@@ -4,3 +4,4 @@ env/*
 test.py
 **/*.sqlite3*
 **/*.log
+*.tar.xz
