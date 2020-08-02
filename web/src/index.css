@@ -1,0 +1,389 @@
+* {
+    margin: 0;
+    padding: 0;
+    outline: none;
+    box-sizing:border-box;
+}
+
+img {
+    max-width: 100%;
+}
+
+button{
+    background: none;
+    border: none;
+    outline: none;
+    display: block;
+    cursor: pointer;
+}
+
+a{
+    text-decoration: none;
+}
+
+html, body, .wrapper-2 {
+    width: 100%;
+}
+
+#root {
+    width: 100%;
+    overflow: hidden;
+}
+
+.wrapper {
+    transition: transform ease-out 0.15s;
+}
+
+.wrapper.menu_closed {
+    transform: translateX(-15rem);
+}
+
+body {
+    min-height: 100vh;
+    font-family: 'Roboto', sans-serif;
+}
+
+.wrapper{
+    display: -webkit-flex;
+    display: -ms-flex;
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+    width: calc(100% + 15rem);
+}
+
+.menu {
+    background-color: #4c4a58;
+    min-height: 100vh;
+    width: 15rem;
+    overflow-y: auto;
+}
+
+.menu::-webkit-scrollbar{
+    display: none;
+}
+
+.main{
+    overflow-x: auto;
+    display: -webkit-flex;
+    display: -ms-flex;
+    display: flex;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    width: calc(100% - 15rem);
+    /* padding-right: 10rem; */
+}
+
+.content{
+    padding: 2rem;
+    padding-top: 1rem;
+}
+
+.header{
+    width: 100%;
+    padding: 0.3rem 0.6rem;
+    background-color: #2662ac;
+}
+
+
+.header-show_menu button{
+    cursor: pointer;
+    color: white;
+    font-size: 1.5rem;
+}
+
+.global_title {
+    font-weight: bold;
+    padding: 0.1rem 0.3rem;
+    padding-bottom: calc(0.3rem - 1px);
+    width: 100%;
+    border-bottom: 1px solid #474553;
+    margin-bottom: 0.2rem;
+    text-align: center;
+    font-size: 2rem;
+    color: white;
+}
+
+.menu__page_option-button {
+    border-bottom: 1px solid #474553;
+    border-top: 1px solid #474553;
+    height: 2.4rem;
+    width: 100%;
+    color: #fff;
+    font-size: 1.2rem;
+    /* line-height: 1rem; */
+    text-align: center;
+    margin-bottom: 0.3rem;
+    background-color: #5c596a;
+    transition: 0.3s ease-out;
+}
+
+.menu__page_option-button:hover{
+    background-color: #736f86;
+}
+
+.menu__page_option-button:first-of-type{
+    /* border-top: 1px solid #474553; */
+}
+
+.main__site_title {
+    font-weight: normal;
+    color: #252525;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.button {
+    cursor: pointer;
+    border-radius: 2px;
+    background-color: #4e90e1;
+    padding: 0.3rem 1rem;
+    font-size: 1.4rem;
+    color: #fff;
+    text-shadow: #fff 2px;
+    transition: 0.3s ease-out;
+    width: 100%;
+}
+
+.button:hover{
+    background-color: #8cb4e4;
+}
+
+.table {
+    margin-top: 0.3rem;
+    border: 1px solid #9c9c9c;
+    border-radius: 2px;
+    font-size: 1.4rem;
+    overflow: hidden;
+}
+
+.table table {
+    border-collapse: collapse;
+    /* cont */
+    width: 100%;
+}
+
+.table thead{
+    border-top: none;
+}
+
+.table th {
+    font-size: 1rem;
+}
+
+.table td, .table th {
+    border: 1px solid #9c9c9c;
+    padding: 0.3rem 0.1rem;
+    text-align: center;
+}
+
+.table th{
+    border-top: none;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.table th:first-child,
+.table td:first-child{
+    border-left: none;
+}
+
+.table th:last-child,
+.table td:last-child{
+    border-right: none;
+}
+
+.table tr:last-child td{
+    border-bottom: none;
+}
+
+.form{
+    /* max-width: 30rem; */
+    width: 100%;
+}
+
+.form_field{
+    display: block;
+    margin-bottom: 0.3rem;
+}
+
+.form_buttons{
+    width: 100%;
+    margin-top: 0.1rem;
+}
+
+.order_choose_button{
+    width: 100%;
+    padding: 0.15rem;
+    margin-bottom: 0.3rem;
+}
+
+.buy_button, .buy_button:hover{
+    background-color: #039660;
+}
+
+.buy_button.chosen{
+    background-color: #04c17c;
+    box-shadow: 0 0 3px #039660;
+}
+
+.sell_button, .sell_button:hover {
+    background-color: #bf2233;
+}
+
+.sell_button.chosen{
+    background-color: #df1e33;
+    box-shadow: 0 0 3px #bf2233;
+}
+
+
+.form_field-label{
+    display: block;
+    font-size: 1.2rem;
+    color: #2f2f2f;
+    font-weight: normal;
+    margin-bottom: 0.3rem;
+}
+
+.form_field-input {
+    display: block;
+    font-size: 1.3rem;
+    font-weight: normal;
+    width: 100%;
+    padding: 0.15rem 0.2rem;
+    border: 1px solid #a0a0a0;
+    border-radius: 1px;
+    color: #000;
+}
+
+.form_field-input:focus{
+    border-color: #5f6ee0;
+}
+
+.form_field-select {
+    background-color: #f3f3f3;
+    text-align: center;
+}
+
+.new_order_button {
+    margin-top: 0.6rem;
+}
+
+.order_list th {
+    cursor: pointer;
+}
+
+.sort_button{
+    margin-left: 0.2rem;
+    color: #777777;
+}
+
+.delete_column {
+    width: 2rem;
+}
+
+.delete_button {
+    background-color: #ff2400;
+}
+
+.delete_button:hover {
+    background-color: rgba(255, 36, 0, 0.6)
+}
+
+.table_cell_editing_input {
+    border: 1px solid #ccc;
+    resize: none;
+    border-radius: 2px;
+    display: block;
+    width: 0;
+    font:inherit;
+    line-height: 1.6rem;
+    text-indent: 0.2rem;
+    margin-right: 0.2rem;
+    flex-grow: 2;
+}
+
+.editing_field{
+    width: 100%;
+    display: -webkit-flex;
+    display: -ms-flex;
+    display: flex;
+    -webkit-flex-direction: row;
+    -ms-flex-direction: row;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 0.2rem;
+}
+
+.save_button {
+    font-size: 1.2rem;
+    width: 6rem;
+    padding: 0.3rem 0;
+}
+
+.menu__symbol_button i {
+    margin-right: 0.3rem;
+}
+
+.exchange_rate {
+    font-size: 1.2rem;
+    font-weight: normal;
+    text-shadow: 0 0 1px #666;
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #888;
+}
+
+.exchange_rate-span {
+    /* margin-right: 0.4rem; */
+}
+
+.exchange_rate-span-rate {
+    margin-right: 0.4rem;
+}
+
+.exchange_rate-time {
+    margin-left: 0.8rem;
+}
+
+.quick_button-word {
+    margin-right: 0.4rem;
+}
+
+.quick_button-for {
+    margin-right: 0.4rem;
+}
+
+.quick_button-volume {
+    margin-right: 0.2rem;
+}
+
+.th-preview {
+    width: 20rem;
+}
+
+.button_preview {
+    margin-top: 2rem;
+}
+
+.button_preview-h3 {
+    margin-bottom: 0.5rem;
+}
+
+.button_preview .quick_button {
+    transition: none;
+}
+
+.quick_buttons_row {
+    display: -webkit-flex;
+    display: -ms-flex;
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    justify-content: space-around;
+}
+
+.quick_buttons_row .button_div {
+    width: calc(100% / 3);
+    margin: 0.3rem 0.3rem;
+}
