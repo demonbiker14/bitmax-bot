@@ -110,23 +110,11 @@ class BitmaxREST_API(DefaultAPI):
     async def place_order(self, symbol, size, order_type, order_side, price=None, post_only=False, resp_inst='ACK', time_in_force='GTC'):
         timestamp = int(datetime.datetime.now().timestamp() * 1000)
         data = {
-            # 'time': timestamp,
-            # 'coid': await self.get_uuid(),
-            # 'symbol': symbol,
-            #  'orderPrice': str(price),
-            # 'orderQty': str(size),
-            # 'orderType': order_type,
-            # 'side': order_side,
-            # 'postOnly': False,
-            # 'respInst': resp_inst,
-            # "id": "iGwzbzWxxcHwno4b8VCvh8aaYCJaPALm",
             'time': timestamp,
             'symbol': symbol,
             'orderQty': str(size),
             'orderType': order_type,
             'side': order_side,
-            # 'id': "iGwzbzWxxcHwno4b8VCvh8aaYCJaPALm",
-            # 'timeInForce': time_in_force,
             "respInst": 'ACK',
         }
         if order_type == 'limit':
@@ -134,6 +122,12 @@ class BitmaxREST_API(DefaultAPI):
         resp = await self.post(path='/cash/order', data=data, group_needed=True)
         return resp
         # pprint.pprint(resp)
+
+    async def get_rate(self, symbol):
+        result = await self.get(path='/ticker', params={
+            'symbol': symbol
+        })
+        return result
 
 Dispatcher = collections.namedtuple('Dispatcher', [
     'func', 'name'
@@ -175,7 +169,6 @@ class BitmaxWebSocket:
     async def __aenter__(self):
         headers = Util.make_headers('stream', self._api_token, self._secret)
         self._ws_connection = await self._session.ws_connect(self._url, headers=headers)
-        # self._ws = await self._ws_connection.__aenter__()
 
     async def __aexit__(self, *args, **kwargs):
         # await self._ws.__aexit__()
@@ -187,7 +180,8 @@ class BitmaxWebSocket:
         await self._ws_connection.send_json(data)
 
     async def receive_json(self):
-        return await self._ws_connection.receive_json()
+        response = await self._ws_connection.receive_json()
+        return response
 
     async def dispatch(self, message):
         if message.type != aiohttp.WSMsgType.TEXT:
@@ -208,7 +202,6 @@ class BitmaxWebSocket:
             try:
                 if self._ws_connection.closed:
                     raise self.WSClosed('WebSocket apparently closed')
-
                 message = await self._ws_connection.receive()
                 message = await self.dispatch(message)
             except Exception as exc:
@@ -218,8 +211,6 @@ class BitmaxWebSocket:
 
 if __name__ == '__main__':
     import pprint
-
-
     async def main():
         api = BitmaxREST_API(
             api_token=config['BITMAX']['KEY'],
@@ -241,7 +232,7 @@ if __name__ == '__main__':
                 order_side='sell',
                 time_in_force='IOC'
             )
-            pprint.pprint(result)
+            # pprint.pprint(result)
             # async with bitmax_ws:
                 # account = await api.get('/info')
                 # await bitmax_ws.send_json('sub', data={

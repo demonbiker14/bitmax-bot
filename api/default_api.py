@@ -6,7 +6,7 @@ class DefaultAPI:
     api_url = None
     session = None
 
-    def __init__(self, api_url, api_token):
+    def __init__(self, api_url, api_token=None):
         self.api_url = api_url
         self.api_token = api_token
 
@@ -27,9 +27,8 @@ class DefaultAPI:
     async def get_api_url(self, *args, **kwargs):
         return self.api_url
 
-    async def process_method(self, api_url, method, path, params=None, data=None, headers=None, *args, **kwargs):
+    async def process_method(self, api_url, method, path, params=None, data=None, headers=None, json=True, *args, **kwargs):
         url = api_url + path
-        # print(url)
         if not headers:
             headers = {}
         init_headers = await self.get_headers(path)
@@ -43,7 +42,8 @@ class DefaultAPI:
             response = await self.session.post(url, json=data, params=params, headers=headers)
         elif method == 'delete':
             response = await self.session.delete(url, params=params, headers=headers)
-        response = await response.json()
+        if json:
+            response = await response.json()
         return response
 
     async def process_api_method(self, *args, **kwargs):
