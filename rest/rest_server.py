@@ -12,12 +12,13 @@ logger = logging.getLogger(f'{general.logger_name}.web')
 logger.addHandler(logging.FileHandler('logs/web.log', mode='a+'))
 DB_PATH = 'db/db.sqlite3'
 
+api_config = config['SERVER_API']
 
 class RestServer:
     class NotUSDTError(Exception):
         pass
 
-    def __init__(self, password, bot, host=config.host, port=config.port):
+    def __init__(self, password, bot, host=api_config['HOST'], port=api_config['PORT']):
         self._host = host
         self._port = port
         self._password = password
