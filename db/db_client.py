@@ -42,8 +42,6 @@ class DBClient:
         symbol = Symbol()
         symbol.first = first
         symbol.second = second
-        symbol.name = name
-        symbol.short_description = short_description
         return symbol
 
     async def list_buttons(self):
@@ -136,9 +134,7 @@ if __name__ == '__main__':
     client = DBClient(dbconfig=dbconfig)
     async def main():
         async with client:
-            # symbol = await client.get_symbol('BTMX', 'USDT')
-            # async for order in await symbol.get_orders_for_price_bid(20):
-            #     print(order)
-            async for order in await client.list_processing_orders():
-                print(await order.to_str())
+            order = await Order.all().limit(1)
+            await order[0].save()
+            print(await order[0].to_str())
     asyncio.run(main())

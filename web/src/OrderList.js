@@ -156,6 +156,14 @@ class OrderList extends React.Component {
                                             <span>Объем</span>
                                             <i className="sort_button fas fa-sort"></i>
                                         </th>
+                                        <th onClick={
+                                            () => {
+                                                this.sort_by_field('add_timestamp')
+                                            }
+                                        }>
+                                            <span>Время добавления</span>
+                                            <i className="sort_button fas fa-sort"></i>
+                                        </th>
                                         <th className="delete_column">D</th>
                                     </tr>
                                 </thead>
@@ -205,6 +213,7 @@ class Order extends React.Component {
                 <td>{this.order.trigger_price}</td>
                 <td>{this.order.price}</td>
                 <td>{this.order.volume + ' ' + this.order.symbol.split('/')[0]}</td>
+                <td>{this.order.add_timestamp}</td>
                 <td>
                     <button className="button delete_button" type="button" onClick={()=>{this.props.delete_order(this.order.id)}}>Delete</button>
                 </td>

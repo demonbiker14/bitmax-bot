@@ -18,10 +18,6 @@ class Symbol(Model):
     # ticker = fields.CharField(max_length=10)
     first = fields.CharField(max_length=10)
     second = fields.CharField(max_length=10)
-
-    name = fields.CharField(max_length=256, null=True)
-    short_description = fields.TextField(null=True)
-    #
     orders: fields.ReverseRelation["db.Order"]
     processing_orders: fields.ReverseRelation["db.ProcessingOrder"]
     #
@@ -33,12 +29,6 @@ class Symbol(Model):
             'id': self.pk,
             'first': self.first,
             'second': self.second,
-            'name': self.name if self.name else 'Empty',
-            'short_description': (
-                    self.short_description
-                    if self.short_description
-                    else 'Empty'
-                ),
         }
 
     async def add_order(self, order_type, trigger_price, price, volume):
@@ -80,6 +70,7 @@ class Order(Model):
     order_type = fields.IntEnumField(enum_type=OrderType)
     price = fields.FloatField()
     volume = fields.FloatField()
+    add_timestamp = fields.DatetimeField(auto_now_add=True)
 
     async def to_dict(self):
         return {
@@ -89,6 +80,7 @@ class Order(Model):
             'order_type': self.order_type,
             'price': self.price,
             'volume': self.volume,
+            'add_timestamp': self.add_timestamp.strftime('%H:%M:%S %d-%m-%Y'),
         }
 
     class Meta:
@@ -110,7 +102,7 @@ class Order(Model):
         symbol = await self.symbol
         order_type = 'BUY' if self.order_type == OrderType.BUY else 'SELL'
         return (
-            f'{str(symbol)} {order_type} Trigger: {self.trigger_price} Actual: {self.price}'
+            f'{str(symbol)} {order_type} Trigger: {self.trigger_price} Actual: {self.price} at {str(self.add_timestamp)}'
         )
 
 class Status(enum.IntEnum):

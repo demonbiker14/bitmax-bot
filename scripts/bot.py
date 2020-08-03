@@ -191,11 +191,11 @@ class MarketBot:
                             self._logger.debug(result)
                             try:
                                 order_id = result['data']['info']['orderId']
+                                p_order = await order.make_processing(order_id)
                             except Exception as exc:
                                 self._logger.exception(exc)
                                 self._logger.debug(result)
                                 raise exc
-                            p_order = await order.make_processing(order_id)
                     if ask_orders:
                         async for order in ask_orders:
                             status = Status.PROCESSING
@@ -209,11 +209,11 @@ class MarketBot:
                             self._logger.debug(result)
                             try:
                                 order_id = result['data']['info']['orderId']
+                                p_order = await order.make_processing(order_id)
                             except Exception as exc:
                                 self._logger.exception(exc)
                                 self._logger.debug(result)
                                 raise exc
-                            p_order = await order.make_processing(order_id)
                 except Exception as exc:
                     self._logger.exception(exc)
                     raise exc

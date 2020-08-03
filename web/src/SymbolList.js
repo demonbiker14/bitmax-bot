@@ -94,8 +94,6 @@ class SymbolList extends React.Component {
                                     <tr>
                                         <th>Главный тикер</th>
                                         <th>Котировочный тикер</th>
-                                        <th>Название</th>
-                                        <th>Описание</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -141,11 +139,10 @@ class Symbol extends React.Component {
         }
     }
     fields = [
-        'first', 'second', 'name', 'short_description'
+        'first', 'second'
     ]
 
     render () {
-        // console.log(this.props.entries);
         return (
             <tr>
                 { this.fields.map(
@@ -165,9 +162,6 @@ class Symbol extends React.Component {
                          >{this.props.symbol[field]}</SymbolField>)
                     ).bind(this)
                 ) }
-                {/* <td>
-                    <button className="button delete_button" type="button">Delete</button>
-                </td> */}
             </tr>
         )
     }
