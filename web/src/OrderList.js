@@ -248,7 +248,6 @@ export class NewOrder extends React.Component {
         }
     }
     change_order_type(ot){
-        console.log(ot);
         this.setState(this.new_order_type(ot))
     }
     constructor (props){
@@ -418,7 +417,7 @@ export class NewOrder extends React.Component {
                                 ) }
                             </select>
                         </div>
-                        <div className="form_field" style="display:none">
+                        <div className="form_field" style={{display:'none'}}>
                             <label className="form_field-label" htmlFor="">Вид ордера</label>
                             {choose_buttons}
                             <input className="form_field-input" type="hidden" name="order_type" value={this.state.chosen}/>

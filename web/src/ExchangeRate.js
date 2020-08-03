@@ -36,11 +36,15 @@ export class ExchangeRate extends React.Component {
 
     componentDidMount () {
         this.fetch_rate();
-        let timer = setInterval((
+        this.timer = setInterval((
             () => {
                 this.fetch_rate();
             }
         ).bind(this), 1000 * 30);
+    }
+
+    componentWillUnmount () {
+        clearInterval(this.timer);
     }
 
     render () {
@@ -86,6 +90,10 @@ class Timer extends React.Component {
                 });
             }
         ).bind(this), 1000);
+    }
+
+    componentWillUnmount () {
+        clearInterval(this.inter);
     }
 
     get_word_for_second(seconds) {

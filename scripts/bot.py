@@ -170,15 +170,11 @@ class MarketBot:
             elif msg['m'] == 'depth':
                 symbol = msg.get('symbol')
                 data = msg.get('data')
-
                 if not (data and symbol):
                     raise ValueError(msg)
-
                 orders = await self.get_orders_from_msg(msg)
-
                 if not orders:
                     return None
-
                 bid_orders, ask_orders, symbol = orders
 
                 try:
@@ -192,11 +188,16 @@ class MarketBot:
                                 price=order.price,
                                 volume=order.volume
                             )
-                            order_id = result['data']['info']['orderId']
+                            self._logger.debug(result)
+                            try:
+                                order_id = result['data']['info']['orderId']
+                            except Exception as exc:
+                                self._logger.exception(exc)
+                                self._logger.debug(result)
+                                raise exc
                             p_order = await order.make_processing(order_id)
                     if ask_orders:
                         async for order in ask_orders:
-                            # print(await order.make_processing(order_id))
                             status = Status.PROCESSING
                             result = await self.place_order(
                                 symbol=symbol,
@@ -205,7 +206,13 @@ class MarketBot:
                                 price=order.price,
                                 volume=order.volume
                             )
-                            order_id = result['data']['info']['orderId']
+                            self._logger.debug(result)
+                            try:
+                                order_id = result['data']['info']['orderId']
+                            except Exception as exc:
+                                self._logger.exception(exc)
+                                self._logger.debug(result)
+                                raise exc
                             p_order = await order.make_processing(order_id)
                 except Exception as exc:
                     self._logger.exception(exc)
