@@ -201,7 +201,7 @@ class Order extends React.Component {
         return (
             <tr>
                 <td>{this.order.symbol}</td>
-                <td>{this.order.order_type === BUY ? 'Покупка' : 'Продажа'}</td>
+                <td>{this.order.order_type.toString() === BUY ? 'Покупка' : 'Продажа'}</td>
                 <td>{this.order.trigger_price}</td>
                 <td>{this.order.price}</td>
                 <td>{this.order.volume + ' ' + this.order.symbol.split('/')[0]}</td>
