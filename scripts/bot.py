@@ -187,7 +187,7 @@ class MarketBot:
                             status = Status.PROCESSING
                             result = await self.place_order(
                                 symbol=symbol,
-                                ot='market',
+                                ot='limit',
                                 order_type=OrderType.BUY,
                                 price=order.price,
                                 volume=order.volume
@@ -200,7 +200,7 @@ class MarketBot:
                             status = Status.PROCESSING
                             result = await self.place_order(
                                 symbol=symbol,
-                                ot='market',
+                                ot='limit',
                                 order_type=OrderType.SELL,
                                 price=order.price,
                                 volume=order.volume
