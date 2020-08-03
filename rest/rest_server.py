@@ -7,6 +7,7 @@ import aiohttp
 import general
 import logging
 import os.path
+import math
 
 logger = logging.getLogger(f'{general.logger_name}.web')
 logger.addHandler(logging.FileHandler('logs/web.log', mode='a+'))
@@ -148,7 +149,7 @@ class RestServer:
             trigger_price = float(data['trigger_price'])
             price = float(data['price'])
             order_type = data['order_type']
-            volume = float(data['volume']) / float(rate['data']['open'])
+            volume = math.ceil(float(data['volume']) / float(rate['data']['open']))
             # correct_volume = floatvolume * rate
 
             try:
