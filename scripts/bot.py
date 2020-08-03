@@ -233,11 +233,11 @@ class MarketBot:
         async for symbol in await self.dbclient.list_symbols():
             await self.subscribe_to_channel(
                 f'depth:{str(symbol)}', id='abc')
-        # self.tasks = asyncio.gather(
-        #     self.handle_data(),
-        #     self.send_from_queue()
-        # )
-        # await self.tasks
+        self.tasks = asyncio.gather(
+            self.handle_data(),
+            self.send_from_queue()
+        )
+        await self.tasks
 
 
     # def run_bot(self):
