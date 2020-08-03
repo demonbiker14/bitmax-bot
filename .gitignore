@@ -5,3 +5,4 @@ test.py
 **/*.sqlite3*
 **/*.log
 *.tar.xz
+nohup.out
