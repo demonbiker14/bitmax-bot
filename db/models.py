@@ -70,7 +70,7 @@ class Order(Model):
     order_type = fields.IntEnumField(enum_type=OrderType)
     price = fields.FloatField()
     volume = fields.FloatField()
-    add_timestamp = fields.DatetimeField(auto_now_add=True)
+    add_timestamp = fields.DatetimeField(auto_now_add=True, null=True)
 
     async def to_dict(self):
         return {
