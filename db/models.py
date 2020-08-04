@@ -93,6 +93,7 @@ class Order(Model):
             p_order.symbol = await self.symbol
             p_order.price = self.price
             p_order.order_type = self.order_type
+            p_order.volume = self.volume
             p_order.status = Status.PROCESSING
             await p_order.save()
             await self.delete()

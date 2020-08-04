@@ -181,17 +181,19 @@ class MarketBot:
                     if bid_orders:
                         async for order in bid_orders:
                             status = Status.PROCESSING
-                            result = await self.place_order(
-                                symbol=symbol,
-                                ot='limit',
-                                order_type=OrderType.BUY,
-                                price=order.price,
-                                volume=order.volume
-                            )
                             self._logger.debug(result)
                             try:
+                                p_order = await order.make_processing(None)
+                                result = await self.place_order(
+                                    symbol=symbol,
+                                    ot='limit',
+                                    order_type=OrderType.BUY,
+                                    price=order.price,
+                                    volume=order.volume
+                                )
                                 order_id = result['data']['info']['orderId']
-                                p_order = await order.make_processing(order_id)
+                                p_order.order_id = order_id
+                                await p_order.save()
                             except Exception as exc:
                                 self._logger.exception(exc)
                                 self._logger.debug(result)
@@ -199,17 +201,20 @@ class MarketBot:
                     if ask_orders:
                         async for order in ask_orders:
                             status = Status.PROCESSING
-                            result = await self.place_order(
-                                symbol=symbol,
-                                ot='limit',
-                                order_type=OrderType.SELL,
-                                price=order.price,
-                                volume=order.volume
-                            )
                             self._logger.debug(result)
                             try:
                                 order_id = result['data']['info']['orderId']
-                                p_order = await order.make_processing(order_id)
+                                p_order = await order.make_processing(None)
+                                result = await self.place_order(
+                                    symbol=symbol,
+                                    ot='limit',
+                                    order_type=OrderType.SELL,
+                                    price=order.price,
+                                    volume=order.volume
+                                )
+                                order_id = result['data']['info']['orderId']
+                                p_order.order_id = order_id
+                                await p_order.save()
                             except Exception as exc:
                                 self._logger.exception(exc)
                                 self._logger.debug(result)
