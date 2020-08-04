@@ -87,6 +87,9 @@ class Order(Model):
         table = 'order'
 
     async def make_processing(self, order_id):
+        existing_order = ProcessingOrder.filter(order_id=order_id)
+        if not await existing_order.exists():
+            raise Exception(f'Already exists {order_id}')
         async with transactions.in_transaction() as transaction:
             p_order = ProcessingOrder()
             p_order.order_id = order_id
