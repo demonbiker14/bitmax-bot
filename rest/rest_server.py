@@ -149,7 +149,7 @@ class RestServer:
             trigger_price = float(data['trigger_price'])
             price = float(data['price'])
             order_type = data['order_type']
-            volume = math.ceil(float(data['volume']) / float(rate['data']['open']))
+            volume = math.ceil(float(data['volume']) / price)
             # correct_volume = floatvolume * rate
 
             try:
