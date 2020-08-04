@@ -166,12 +166,12 @@ class BitmaxWebSocket:
             return func
         return decorator
 
-    async def connect_ws(self):
+    async def connect_ws(self, headers):
         self._ws_connection = await self._session.ws_connect(self._url, headers=headers)
 
     async def __aenter__(self):
         headers = Util.make_headers('stream', self._api_token, self._secret)
-        await self.connect_ws()
+        await self.connect_ws(headers)
 
     async def __aexit__(self, *args, **kwargs):
         # await self._ws.__aexit__()
