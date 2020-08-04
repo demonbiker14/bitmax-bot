@@ -166,9 +166,12 @@ class BitmaxWebSocket:
             return func
         return decorator
 
+    async def connect_ws(self):
+        self._ws_connection = await self._session.ws_connect(self._url, headers=headers)
+
     async def __aenter__(self):
         headers = Util.make_headers('stream', self._api_token, self._secret)
-        self._ws_connection = await self._session.ws_connect(self._url, headers=headers)
+        await self.connect_ws()
 
     async def __aexit__(self, *args, **kwargs):
         # await self._ws.__aexit__()
@@ -184,11 +187,20 @@ class BitmaxWebSocket:
         return response
 
     async def dispatch(self, message):
-        if message.type != aiohttp.WSMsgType.TEXT:
-            raise ValueError(f'Non-text message\n{message}')
+        if message.type == aiohttp.WSMsgType.CLOSED:
+            exc = self.WSClosed('WebSocket apparently closed')
+            logger.debug(message)
+            logger.exception(exc)
+            raise exc
+        elif message.type != aiohttp.WSMsgType.TEXT:
+            exc = ValueError(f'Non-text message\n{message}')
+            logger.exception(exc)
+            raise exc
         try:
             data = message.json()
             if data['m'] == 'ping':
+                if int(data['hp']) < 3:
+                    logger.warning(data)
                 await self.send_json(op='pong', data={})
             else:
                 for dispatcher in self._dispatchers:
