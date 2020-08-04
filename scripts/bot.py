@@ -187,7 +187,7 @@ class MarketBot:
                                     ot='limit',
                                     order_type=OrderType.BUY,
                                     price=order.price,
-                                    status = Status.PROCESSING
+                                    status = Status.PROCESSING,
                                     volume=order.volume
                                 )
                                 self._logger.debug(result)
@@ -209,6 +209,7 @@ class MarketBot:
                                     ot='limit',
                                     order_type=OrderType.SELL,
                                     price=order.price,
+                                    status = Status.PROCESSING,
                                     volume=order.volume
                                 )
                                 self._logger.debug(result)
