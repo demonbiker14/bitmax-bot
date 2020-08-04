@@ -180,8 +180,6 @@ class MarketBot:
                 try:
                     if bid_orders:
                         async for order in bid_orders:
-                            status = Status.PROCESSING
-                            self._logger.debug(result)
                             try:
                                 p_order = await order.make_processing(None)
                                 result = await self.place_order(
@@ -189,8 +187,10 @@ class MarketBot:
                                     ot='limit',
                                     order_type=OrderType.BUY,
                                     price=order.price,
+                                    status = Status.PROCESSING
                                     volume=order.volume
                                 )
+                                self._logger.debug(result)
                                 order_id = result['data']['info']['orderId']
                                 p_order.order_id = order_id
                                 await p_order.save()
@@ -201,7 +201,6 @@ class MarketBot:
                     if ask_orders:
                         async for order in ask_orders:
                             status = Status.PROCESSING
-                            self._logger.debug(result)
                             try:
                                 order_id = result['data']['info']['orderId']
                                 p_order = await order.make_processing(None)
@@ -212,6 +211,7 @@ class MarketBot:
                                     price=order.price,
                                     volume=order.volume
                                 )
+                                self._logger.debug(result)
                                 order_id = result['data']['info']['orderId']
                                 p_order.order_id = order_id
                                 await p_order.save()
