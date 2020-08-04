@@ -7,6 +7,7 @@ import aiohttp
 import general
 import logging
 import os.path
+import os
 import math
 
 logger = logging.getLogger(f'{general.logger_name}.web')
@@ -183,7 +184,6 @@ class RestServer:
 
     async def upload_db(self, request):
         reader = await request.multipart()
-        # if fiekd
         while True:
             part = await reader.next()
             if not part:
@@ -191,16 +191,24 @@ class RestServer:
             if part.name == 'file':
                 if not part.filename:
                     raise web_exceptions.HTTPBadRequest()
-                file = open(os.path.join(general.BASE_DIR, DB_PATH), 'wb+')
-                with file:
-                    while True:
-                        chunk = await part.read_chunk()
-                        if not chunk:
-                            break
-                        file.write(chunk)
+                async with asyncio.Lock():
+                    file = open(os.path.join(general.BASE_DIR, DB_PATH), 'wb+')
+                    with file:
+                        while True:
+                            chunk = await part.read_chunk()
+                            if not chunk:
+                                break
+                            file.write(chunk)
+                    files = [
+                        os.path.join(general.BASE_DIR, DB_PATH + '-shm'),
+                        os.path.join(general.BASE_DIR, DB_PATH + '-wal')
+                    ]
 
-        async with asyncio.Lock():
-            pass
+                    await self.bot.dbclient.__aexit__()
+                    for file in files:
+                        os.remove(file)
+                    await self.bot.dbclient.__aenter__()
+
         return web.Response(text='response')
 
 

@@ -4,5 +4,7 @@ env/*
 test.py
 **/*.sqlite3*
 **/*.log
+logs/*
+logs/**/*
 *.tar.xz
 nohup.out

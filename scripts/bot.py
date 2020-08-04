@@ -196,7 +196,6 @@ class MarketBot:
                                 await p_order.save()
                             except Exception as exc:
                                 self._logger.exception(exc)
-                                self._logger.debug(result)
                                 raise exc
                     if ask_orders:
                         async for order in ask_orders:
@@ -218,7 +217,6 @@ class MarketBot:
                                 await p_order.save()
                             except Exception as exc:
                                 self._logger.exception(exc)
-                                self._logger.debug(result)
                                 raise exc
                 except Exception as exc:
                     self._logger.exception(exc)
