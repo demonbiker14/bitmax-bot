@@ -193,6 +193,7 @@ class RestServer:
                     raise web_exceptions.HTTPBadRequest()
                 async with asyncio.Lock():
                     file = open(os.path.join(general.BASE_DIR, DB_PATH), 'wb+')
+                    await self.bot.dbclient.__aexit__()
                     with file:
                         while True:
                             chunk = await part.read_chunk()
@@ -204,7 +205,6 @@ class RestServer:
                         os.path.join(general.BASE_DIR, DB_PATH + '-wal')
                     ]
 
-                    await self.bot.dbclient.__aexit__()
                     for file in files:
                         os.remove(file)
                     await self.bot.dbclient.__aenter__()
