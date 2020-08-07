@@ -12,6 +12,7 @@ import sys
 
 class MarketBot:
 
+
     class NoSuchOrderError(Exception):
         pass
 
@@ -24,6 +25,8 @@ class MarketBot:
         self._secret = secret
         self._server_pass = server_pass
         self._logger = logging.getLogger(f'{general.logger_name}.market_bot')
+        self.stopped = False
+
         # self._pending_tasks = asyncio.Queue()
 
     async def __aenter__(self):
@@ -41,8 +44,12 @@ class MarketBot:
         self.dbclient = DBClient(self._dbconfig)
         await self.dbclient.__aenter__()
 
+        self.stopped = False
+
 
     async def __aexit__(self, *args, **kwargs):
+        self.stopped = True
+
         # print("aexit")
         await self.ws.__aexit__(*args, **kwargs)
         await self.bitmax_api.__aexit__(*args, **kwargs)
@@ -63,6 +70,7 @@ class MarketBot:
             raise exc
 
     async def place_order(self, order_type, symbol, price, volume, ot='market'):
+        status=Status.PROCESSING
         symbol = str(symbol)
         order_side = 'buy' if order_type == OrderType.BUY else 'sell'
         result = await self.bitmax_api.place_order(
@@ -94,6 +102,9 @@ class MarketBot:
             product = tuple(product['symbol'].split('/'))
             if len(product) == 2:
                 products.append(product)
+        channel = ','.join(map(lambda x:str(x[0] + '/' + x[1]), products))
+        await self.subscribe_to_channel(
+            f'depth:{products}', id='abc')
         await self.add_symbols(products)
         return products
 
@@ -160,12 +171,15 @@ class MarketBot:
     async def handle_data(self):
         @self.ws.add_dispatcher(name='receiver')
         async def handler(msg):
-            if msg['m'] == 'order':
-                order_id = msg['data']['orderId']
-                status = msg['data']['st']
-                p_order = await ProcessingOrder.get_or_none(order_id)
-                if not p_order:
-                    raise self.NoSuchOrderError(order_id)
+            if self.stopped:
+                print(self.stopped)
+                return None
+            # elif msg['m'] == 'order':
+            #     order_id = msg['data']['orderId']
+            #     status = msg['data']['st']
+            #     # p_order = await ProcessingOrder.get_or_none(order_id)
+            #     if not p_order:
+            #         raise self.NoSuchOrderError(order_id)
 
             elif msg['m'] == 'depth':
                 symbol = msg.get('symbol')
@@ -187,7 +201,6 @@ class MarketBot:
                                     ot='limit',
                                     order_type=OrderType.BUY,
                                     price=order.price,
-                                    status = Status.PROCESSING,
                                     volume=order.volume
                                 )
                                 self._logger.debug(result)
@@ -208,7 +221,6 @@ class MarketBot:
                                     ot='limit',
                                     order_type=OrderType.SELL,
                                     price=order.price,
-                                    status = Status.PROCESSING,
                                     volume=order.volume
                                 )
                                 self._logger.debug(result)
@@ -222,14 +234,17 @@ class MarketBot:
                     self._logger.exception(exc)
                     raise exc
 
-        result = await self.ws.handle_messages()
+        await self.ws.handle_messages(close_exc=False)
         # print('Result': result)
         return result
 
 
     async def send_from_queue(self):
         while True:
-            op, data = await self.get_from_queue()
+            data = await self.get_from_queue()
+            if not data:
+                return None
+            op, data = data
             await self.ws.send_json(op, data)
 
     async def subscribe_to_channel(self, channel, id=''):
@@ -238,33 +253,45 @@ class MarketBot:
             'id': id,
         })
 
-    async def bot(self):
+    async def subscribe_to_all_channels(self):
         await self.subscribe_to_channel(
             f'order:cash', id='abc')
         async for symbol in await self.dbclient.list_symbols():
             await self.subscribe_to_channel(
                 f'depth:{str(symbol)}', id='abc')
-        self.tasks = asyncio.gather(
-            self.handle_data(),
-            self.send_from_queue()
-        )
-        await self.tasks
 
+    async def bot(self):
+        try:
+            await self.subscribe_to_channel(
+                f'order:cash', id='abc')
+            async for symbol in await self.dbclient.list_symbols():
+                await self.subscribe_to_channel(
+                    f'depth:{str(symbol)}', id='abc')
 
-    # def run_bot(self):
-    #     loop = asyncio.new_event_loop()
-    #     asyncio.set_event_loop(loop)
-    #     loop.run_until_complete(self.bot())
+            self.tasks = asyncio.gather(
+                self.handle_data(),
+                self.send_from_queue()
+            )
+
+            await self.tasks
+        except asyncio.CancelledError:
+            return None
 
     async def api_server(self):
         self._api_server = RestServer(password=self._server_pass, bot=self)
         await self._api_server.run()
 
     async def run(self):
-        await asyncio.gather(
-            self.api_server(),
-            self.bot()
-        )
+        try:
+            self.server = asyncio.create_task(self.api_server())
+            self.bot_handler = asyncio.create_task(self.bot())
+            await asyncio.gather(
+                self.server,
+                self.bot_handler,
+            )
+        except asyncio.CancelledError as exc:
+            await self.__aexit__()
+            raise exc
 
 if __name__ == '__main__':
     from general import dbconfig

@@ -6,12 +6,17 @@ import asyncio
 import aiohttp
 import general
 import logging
-import os.path
-import os
 import math
+import tempfile
+import subprocess
+import os
+import os.path
 
 logger = logging.getLogger(f'{general.logger_name}.web')
-logger.addHandler(logging.FileHandler('logs/web.log', mode='a+'))
+handler = logging.FileHandler('logs/web.log', mode='a+')
+handler.setFormatter(general.logger_formatter)
+logger.addHandler(handler)
+
 DB_PATH = 'db/db.sqlite3'
 
 api_config = config['SERVER_API']
@@ -24,10 +29,27 @@ class RestServer:
         self._host = host
         self._port = port
         self._password = password
-        self._app = web.Application(middlewares=[self.cors_middleware])
+        self._app = web.Application(middlewares=[
+            self.blocking_middleware,
+            self.cors_middleware,
+        ])
         self._prefix = '/api'
         self.bot = bot
         self.set_views()
+
+    @web.middleware
+    async def blocking_middleware(self, request, handler):
+        if not self.bot.dbclient.closed or not self.bot.stopped:
+            try:
+                response = await handler(request)
+                return response
+            except Exception as exc:
+                logger.debug(request)
+                logger.exception(exc)
+                raise exc
+        else:
+            logger.warning('DB closed')
+            return web.Response(status=500, body='')
 
     @web.middleware
     async def cors_middleware(self, request, handler):
@@ -40,9 +62,6 @@ class RestServer:
             raise exc
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
-
-    async def download_db(self, request):
-        return web.FileResponse(os.path.join(general.BASE_DIR, DB_PATH))
 
     async def get_user_info(self, request):
         response = await self.bot.bitmax_api.get('/info')
@@ -182,6 +201,36 @@ class RestServer:
         else:
             raise web_exceptions.HTTPNotFound(reason="Unknown object")
 
+    async def download_db(self, request):
+        async with asyncio.Lock():
+            self.bot.stopped = True
+
+            db_path = os.path.join(general.BASE_DIR, DB_PATH)
+
+            @aiohttp.streamer
+            async def get_dump_file(writer, dump_file):
+                with dump_file:
+                    chunk = dump_file.read(2 ** 16)
+                    while chunk:
+                        await writer.write(chunk)
+                        chunk = dump_file.read(2 ** 16)
+
+            p1 = subprocess.Popen([
+                    'sqlite3', db_path, '.dump'
+                ], stdout=subprocess.PIPE)
+            response = web.Response(
+                body=get_dump_file(p1.stdout),
+                headers={
+                    'Content-Disposition': 'Attachment;filename=db.dump',
+                },
+            )
+                # for chunk in dump_file:
+                #     await response.write(chunk)
+                # await response.write_eof()
+
+            self.bot.stopped = False
+            return response
+
     async def upload_db(self, request):
         reader = await request.multipart()
         while True:
@@ -191,23 +240,38 @@ class RestServer:
             if part.name == 'file':
                 if not part.filename:
                     raise web_exceptions.HTTPBadRequest()
-                async with asyncio.Lock():
-                    file = open(os.path.join(general.BASE_DIR, DB_PATH), 'wb+')
-                    await self.bot.dbclient.__aexit__()
-                    with file:
-                        while True:
-                            chunk = await part.read_chunk()
-                            if not chunk:
-                                break
-                            file.write(chunk)
-                    files = [
-                        os.path.join(general.BASE_DIR, DB_PATH + '-shm'),
-                        os.path.join(general.BASE_DIR, DB_PATH + '-wal')
-                    ]
 
-                    for file in files:
-                        os.remove(file)
-                    await self.bot.dbclient.__aenter__()
+                try:
+                    await self.bot.ws.send_json(
+                        op='unsub',
+                        data={
+                            'ch': 'depth:*',
+                        }
+                    )
+                except Exception:
+                    pass
+                self.bot.bot_handler.cancel()
+                await self.bot.__aexit__()
+                db_path = os.path.join(general.BASE_DIR, DB_PATH)
+                if os.path.exists(db_path):
+                    os.remove(db_path)
+                open(db_path, 'w+').close()
+
+                p1 = subprocess.Popen(
+                    ['sqlite3', db_path],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE)
+                while True:
+                    chunk = await part.read_chunk()
+                    if not chunk:
+                        break
+                    p1.stdin.write(chunk)
+                p1.communicate()
+                p1.stdin.close()
+
+                await self.bot.__aenter__()
+                await self.bot.subscribe_to_all_channels()
+                asyncio.create_task(self.bot.bot())
 
         return web.Response(text='response')
 

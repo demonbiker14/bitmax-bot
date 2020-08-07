@@ -27,7 +27,7 @@ export class ImportExport extends React.Component {
             let url = window.URL.createObjectURL(blob);
             let a = document.createElement('a');
             a.href = url;
-            a.download = "db.sqlite3";
+            a.download = "db.dump";
             document.body.appendChild(a);
             a.click();
             a.remove();

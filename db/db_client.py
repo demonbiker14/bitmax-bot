@@ -32,10 +32,14 @@ class DBClient:
         pass
     def __init__(self, dbconfig=None):
         self._dbconfig = dbconfig
+        self.closed = False
+
     async def __aenter__(self):
+        self.closed = False
         await tortoise.Tortoise.init(config=self._dbconfig)
 
     async def __aexit__(self, *args, **kwargs):
+        self.closed = True
         await tortoise.Tortoise.close_connections()
 
     def make_symbol(self, first, second, name=None, short_description=None):

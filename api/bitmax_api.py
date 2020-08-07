@@ -143,6 +143,7 @@ class BitmaxWebSocket:
         self._url = url
         self._api = api
         self._dispatchers = []
+        self._logger = api._logger
 
     @property
     def _api_token(self):
@@ -187,35 +188,42 @@ class BitmaxWebSocket:
         return response
 
     async def dispatch(self, message):
-        if message.type == aiohttp.WSMsgType.CLOSED:
+        if message.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSING):
             exc = self.WSClosed('WebSocket apparently closed')
-            logger.debug(message)
-            logger.exception(exc)
+            self._logger.debug(message)
             raise exc
         elif message.type != aiohttp.WSMsgType.TEXT:
             exc = ValueError(f'Non-text message\n{message}')
-            logger.exception(exc)
+            self._logger.exception(exc)
             raise exc
         try:
             data = message.json()
+            print(data)
             if data['m'] == 'ping':
                 if int(data['hp']) < 3:
-                    logger.warning(data)
+                    self._logger.warning(data)
                 await self.send_json(op='pong', data={})
             else:
                 for dispatcher in self._dispatchers:
                     asyncio.create_task(dispatcher.func(data))
         except ValueError as exc:
-            logger.exception(exc)
+            self._logger.exception(exc)
             raise exc
 
-    async def handle_messages(self):
+    async def handle_messages(self, close_exc=True):
         while True:
             try:
                 if self._ws_connection.closed:
                     raise self.WSClosed('WebSocket apparently closed')
                 message = await self._ws_connection.receive()
                 message = await self.dispatch(message)
+            except self.WSClosed:
+                if close_exc:
+                    raise exc
+                else:
+                    await self.__aexit__()
+                    await asyncio.sleep(1)
+                    await self.__aenter__()
             except Exception as exc:
                 raise exc
 
