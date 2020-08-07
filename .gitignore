@@ -8,3 +8,4 @@ logs/*
 logs/**/*
 *.tar.xz
 nohup.out
+*.dump

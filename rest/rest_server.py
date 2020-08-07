@@ -48,6 +48,7 @@ class RestServer:
                 logger.exception(exc)
                 raise exc
         else:
+            print(self.bot.dbclient.closed, self.bot.stopped)
             logger.warning('DB closed')
             return web.Response(status=500, body='')
 
@@ -266,6 +267,7 @@ class RestServer:
                     if not chunk:
                         break
                     p1.stdin.write(chunk)
+
                 p1.communicate()
                 p1.stdin.close()
 

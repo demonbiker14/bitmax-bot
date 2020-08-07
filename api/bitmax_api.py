@@ -198,7 +198,6 @@ class BitmaxWebSocket:
             raise exc
         try:
             data = message.json()
-            print(data)
             if data['m'] == 'ping':
                 if int(data['hp']) < 3:
                     self._logger.warning(data)
