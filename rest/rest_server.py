@@ -275,7 +275,7 @@ class RestServer:
                     await self.bot.__aenter__()
                 except Exception:
                     await asyncio.sleep(0.5)
-                    await self.bot__aenter__()
+                    await self.bot.__aenter__()
                 await self.bot.subscribe_to_all_channels()
                 asyncio.create_task(self.bot.bot())
 
