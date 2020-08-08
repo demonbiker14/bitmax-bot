@@ -3,10 +3,11 @@ import sys
 import logging
 import logging.handlers
 import traceback
+from config import config
 
 #### DATABASE CONFIG ####
 
-DEBUG = True
+DEBUG = config.get('DEBUG', False)
 
 BASE_DIR = os.getcwd()
 DB_NAME = 'db/db.sqlite3'

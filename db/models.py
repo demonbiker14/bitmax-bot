@@ -114,6 +114,7 @@ class Status(enum.IntEnum):
     PROCESSING = 0
     DONE = 1
     ERROR = 2
+    NOT_ENOUGH_ACCOUNT_BALANCE = 3
 
     def __str__(self):
         if self.value == Status.PROCESSING:

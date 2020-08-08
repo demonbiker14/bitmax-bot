@@ -15,10 +15,6 @@ class MarketBot:
 
     class NoSuchOrderError(Exception):
         pass
-
-    bid_floor = None
-    ask_ceil = None
-
     def __init__(self, dbconfig, token, secret, server_pass):
         self._dbconfig = dbconfig
         self._token = token
@@ -30,22 +26,25 @@ class MarketBot:
         # self._pending_tasks = asyncio.Queue()
 
     async def __aenter__(self):
-        self._tasks = asyncio.Queue()
-        self.bitmax_api = BitmaxREST_API(
-            api_token=self._token,
-            secret=self._secret,
-            logger=self._logger
-        )
-        await self.bitmax_api.__aenter__()
+        try:
+            self._tasks = asyncio.Queue()
+            self.bitmax_api = BitmaxREST_API(
+                api_token=self._token,
+                secret=self._secret,
+                logger=self._logger
+            )
+            await self.bitmax_api.__aenter__()
 
-        self.ws = await self.bitmax_api.connect_ws()
-        await self.ws.__aenter__()
+            self.ws = await self.bitmax_api.connect_ws()
+            await self.ws.__aenter__()
 
-        self.dbclient = DBClient(self._dbconfig)
-        await self.dbclient.__aenter__()
+            self.dbclient = DBClient(self._dbconfig)
+            await self.dbclient.__aenter__()
 
-        self.stopped = False
-
+            self.stopped = False
+        except Exception as exc:
+            await self.__aexit__()
+            raise exc
 
     async def __aexit__(self, *args, **kwargs):
         self.stopped = True
@@ -69,28 +68,44 @@ class MarketBot:
             self._logger.exception(exc)
             raise exc
 
-    async def place_order(self, order_type, symbol, price, volume, ot='market'):
-        status=Status.PROCESSING
-        symbol = str(symbol)
-        order_side = 'buy' if order_type == OrderType.BUY else 'sell'
+    async def damp(self, order, damping_left):
+        self._logger.debug(f'damping {damping_left}')
+        if damping_left == 0:
+            return None
+        await self.place_order(
+            order=order,
+            damping_left=(damping_left - 1)
+        )
+
+    async def place_order(self, order, ot='limit', damping_left=200):
+        p_order = await order.make_processing(None)
+        status = Status.PROCESSING
+        symbol = str(await order.symbol)
+        order_side = 'buy' if order.order_type == OrderType.BUY else 'sell'
         result = await self.bitmax_api.place_order(
             symbol=symbol,
-            price=price,
-            size=volume,
+            price=order.price,
+            size=order.volume,
             order_type=ot,
             order_side=order_side,
             post_only=False,
             resp_inst='ACK'
         )
+        if result['code'] in config['DAMPING_CODES']:
+            if config['DAMPING']:
+                self._logger.debug(result)
+                await asyncio.sleep(0.5)
+                asyncio.create_task(self.damp(order, damping_left))
+        else:
+            self._logger.debug(result)
+            order_id = result['data']['info']['orderId']
+            p_order.order_id = order_id
+            await p_order.save()
         return result
-
-    def reset_limits(self):
-        self.bid_floor = self.ask_ceil = None
 
     async def add_symbols(self, *args, **kwargs):
         try:
             await self.dbclient.add_symbols(*args, **kwargs)
-            self.reset_limits()
         except Exception as exc:
             self._logger.exception(exc)
             raise exc
@@ -140,12 +155,6 @@ class MarketBot:
             self._logger.exception(exc)
             raise exc
 
-        if self.bid_floor and min_bid_price and min_bid_price >= self.bid_floor:
-            min_bid_price = None
-
-        if self.ask_ceil and max_ask_price and max_ask_price <= self.ask_ceil:
-            max_ask_price = None
-
         if not min_bid_price and max_ask_price:
             bid_orders = None
             ask_orders = await symbol.get_orders_for_price_ask(max_ask_price)
@@ -160,19 +169,12 @@ class MarketBot:
         else:
             bid_orders = ask_orders = None
 
-        if not self.bid_floor:
-            self.bid_floor = min_bid_price
-
-        if not self.ask_ceil:
-            self.ask_ceil = max_ask_price
-
         return bid_orders, ask_orders, symbol
 
     async def handle_data(self):
         @self.ws.add_dispatcher(name='receiver')
         async def handler(msg):
             if self.stopped:
-                print(self.stopped)
                 return None
             # elif msg['m'] == 'order':
             #     order_id = msg['data']['orderId']
@@ -195,38 +197,20 @@ class MarketBot:
                     if bid_orders:
                         async for order in bid_orders:
                             try:
-                                p_order = await order.make_processing(None)
                                 result = await self.place_order(
-                                    symbol=symbol,
+                                    order=order,
                                     ot='limit',
-                                    order_type=OrderType.BUY,
-                                    price=order.price,
-                                    volume=order.volume
                                 )
-                                self._logger.debug(result)
-                                order_id = result['data']['info']['orderId']
-                                p_order.order_id = order_id
-                                await p_order.save()
                             except Exception as exc:
                                 self._logger.exception(exc)
                                 raise exc
                     if ask_orders:
                         async for order in ask_orders:
-                            status = Status.PROCESSING
                             try:
-                                order_id = result['data']['info']['orderId']
-                                p_order = await order.make_processing(None)
                                 result = await self.place_order(
-                                    symbol=symbol,
+                                    order=order,
                                     ot='limit',
-                                    order_type=OrderType.SELL,
-                                    price=order.price,
-                                    volume=order.volume
                                 )
-                                self._logger.debug(result)
-                                order_id = result['data']['info']['orderId']
-                                p_order.order_id = order_id
-                                await p_order.save()
                             except Exception as exc:
                                 self._logger.exception(exc)
                                 raise exc
