@@ -11,8 +11,6 @@ import sys
 
 
 class MarketBot:
-
-
     class NoSuchOrderError(Exception):
         pass
     def __init__(self, dbconfig, token, secret, server_pass):
@@ -124,50 +122,26 @@ class MarketBot:
         return products
 
 
-    async def get_orders_from_msg(self, msg):
-        data = msg['data']
-        symbol = msg['symbol']
-        asks, bids = data['asks'], data['bids']
-        min_bid_price, max_ask_price = float('inf'), 0
-
-        for bid in bids:
-            bid_price = float(bid[0])
-            if min_bid_price > bid_price:
-                min_bid_price = bid_price
-
-        for ask in asks:
-            ask_price = float(ask[0])
-            if max_ask_price < ask_price:
-                max_ask_price = ask_price
-
-        if min_bid_price == float('inf'):
-            min_bid_price = None
-
-        if max_ask_price == 0:
-            max_ask_price = None
+    async def get_orders_for_rate(self, rate):
+        symbol = rate['symbol']
+        price = float(rate['close'])
 
         try:
+            if '/' not in symbol:
+                self._logger.debug(f'Improper symbol: {symbol}')
+                return None
             symbol = await self.dbclient.get_symbol(*symbol.split('/'))
         except self.dbclient.NoSymbolExists as exc:
-            symbol = None
-            return symbol
+            self._logger.debug(f'No symbol: {symbol}')
+            return None
         except Exception as exc:
             self._logger.exception(exc)
             raise exc
 
-        if not min_bid_price and max_ask_price:
-            bid_orders = None
-            ask_orders = await symbol.get_orders_for_price_ask(max_ask_price)
-        elif not max_ask_price and min_bid_price:
-            ask_orders = None
-            bid_orders = await symbol.get_orders_for_price_bid(min_bid_price)
-        elif max_ask_price and min_bid_price:
-            bid_orders, ask_orders = await asyncio.gather(
-                symbol.get_orders_for_price_bid(min_bid_price),
-                symbol.get_orders_for_price_ask(max_ask_price)
-            )
-        else:
-            bid_orders = ask_orders = None
+        bid_orders, ask_orders = await asyncio.gather(
+            symbol.get_orders_for_price_bid(price),
+            symbol.get_orders_for_price_ask(price)
+        )
 
         return bid_orders, ask_orders, symbol
 
@@ -183,45 +157,77 @@ class MarketBot:
             #     if not p_order:
             #         raise self.NoSuchOrderError(order_id)
 
-            elif msg['m'] == 'depth':
-                symbol = msg.get('symbol')
-                data = msg.get('data')
-                if not (data and symbol):
-                    raise ValueError(msg)
-                orders = await self.get_orders_from_msg(msg)
-                if not orders:
-                    return None
-                bid_orders, ask_orders, symbol = orders
+            # elif msg['m'] == 'depth':
+            #     symbol = msg.get('symbol')
+            #     data = msg.get('data')
+            #     if not (data and symbol):
+            #         raise ValueError(msg)
+            #     orders = await self.get_orders_from_msg(msg)
+            #     if not orders:
+            #         return None
+            #     bid_orders, ask_orders, symbol = orders
+            #
+            #     try:
+            #         if bid_orders:
+            #             async for order in bid_orders:
+            #                 try:
+            #                     result = await self.place_order(
+            #                         order=order,
+            #                         ot='limit',
+            #                     )
+            #                 except Exception as exc:
+            #                     self._logger.exception(exc)
+            #                     raise exc
+            #         if ask_orders:
+            #             async for order in ask_orders:
+            #                 try:
+            #                     result = await self.place_order(
+            #                         order=order,
+            #                         ot='limit',
+            #                     )
+            #                 except Exception as exc:
+            #                     self._logger.exception(exc)
+            #                     raise exc
+            #     except Exception as exc:
+            #         self._logger.exception(exc)
+            #         raise exc
 
-                try:
-                    if bid_orders:
-                        async for order in bid_orders:
-                            try:
-                                result = await self.place_order(
-                                    order=order,
-                                    ot='limit',
-                                )
-                            except Exception as exc:
-                                self._logger.exception(exc)
-                                raise exc
-                    if ask_orders:
-                        async for order in ask_orders:
-                            try:
-                                result = await self.place_order(
-                                    order=order,
-                                    ot='limit',
-                                )
-                            except Exception as exc:
-                                self._logger.exception(exc)
-                                raise exc
-                except Exception as exc:
-                    self._logger.exception(exc)
-                    raise exc
 
         await self.ws.handle_messages(close_exc=False)
         # print('Result': result)
         return result
 
+    async def handle_rate(self):
+        while True:
+            result = await self.bitmax_api.get('/ticker')
+            for symbol in result['data']:
+                orders = await self.get_orders_for_rate(symbol)
+                if not orders:
+                    continue
+                bid_orders, ask_orders, symbol = orders
+
+                if bid_orders:
+                    async for order in bid_orders:
+                        try:
+                            result = await self.place_order(
+                                order=order,
+                                ot='limit',
+                            )
+                        except Exception as exc:
+                            self._logger.exception(exc)
+                            raise exc
+                if ask_orders:
+                    async for order in ask_orders:
+                        try:
+                            result = await self.place_order(
+                                order=order,
+                                ot='limit',
+                            )
+                        except Exception as exc:
+                            self._logger.exception(exc)
+                            raise exc
+
+            await asyncio.sleep(0.5)
 
     async def send_from_queue(self):
         while True:
@@ -237,24 +243,19 @@ class MarketBot:
             'id': id,
         })
 
-    async def subscribe_to_all_channels(self):
-        await self.subscribe_to_channel(
-            f'order:cash', id='abc')
-        async for symbol in await self.dbclient.list_symbols():
-            await self.subscribe_to_channel(
-                f'depth:{str(symbol)}', id='abc')
+    # async def subscribe_to_all_channels(self):
+    #     await self.subscribe_to_channel(
+    #         f'order:cash', id='abc')
 
     async def bot(self):
         try:
             await self.subscribe_to_channel(
                 f'order:cash', id='abc')
-            async for symbol in await self.dbclient.list_symbols():
-                await self.subscribe_to_channel(
-                    f'depth:{str(symbol)}', id='abc')
 
             self.tasks = asyncio.gather(
                 self.handle_data(),
-                self.send_from_queue()
+                self.handle_rate(),
+                self.send_from_queue(),
             )
 
             await self.tasks

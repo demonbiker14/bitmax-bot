@@ -241,12 +241,11 @@ class RestServer:
             if part.name == 'file':
                 if not part.filename:
                     raise web_exceptions.HTTPBadRequest()
-
                 try:
                     await self.bot.ws.send_json(
                         op='unsub',
                         data={
-                            'ch': 'depth:*',
+                            'ch': 'order:cash',
                         }
                     )
                 except Exception:
@@ -276,7 +275,7 @@ class RestServer:
                 except Exception:
                     await asyncio.sleep(0.5)
                     await self.bot.__aenter__()
-                await self.bot.subscribe_to_all_channels()
+                # await self.bot.subscribe_to_all_channels()
                 asyncio.create_task(self.bot.bot())
 
         return web.Response(text='response')
