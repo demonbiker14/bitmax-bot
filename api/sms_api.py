@@ -42,5 +42,5 @@ if __name__ == '__main__':
     async def main():
         api = SMSApi(config['SMS']['LOGIN'], config['SMS']['PASSWORD'])
         async with api:
-            print(await api.send_sms(['79264805426'], 'Your code 1234'))
+            print(await api.send_sms([config['SMS']['PHONE']], 'Your code 1234'))
     asyncio.run(main())

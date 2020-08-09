@@ -237,17 +237,28 @@ export class NewOrder extends React.Component {
         return new_buttons;
     }
 
+    list_symbols (per_row=3) {
+        let new_symbols = [];
+        for (let i = 0; i < Math.ceil(
+            this.state.symbols.length / per_row
+        ); i++) {
+            let subarray = this.state.symbols.slice(
+                i * per_row, i * per_row + per_row
+            );
+            new_symbols.push(subarray);
+        }
+        return new_symbols;
+    }
+
     handle_quick_button (button) {
         let form = this.form_ref.current;
         form.volume.value = button.volume;
         this.change_order_type(button.order_type.toString());
     }
 
-    change_symbol (event) {
-        let form = this.form_ref.current;
-        let select = form.querySelector('.select_symbol select');
+    change_symbol (symbol) {
         this.setState({
-            symbol_chosen: select.value,
+            symbol_chosen: symbol,
         });
     }
 
@@ -414,17 +425,58 @@ export class NewOrder extends React.Component {
                     <form ref={this.form_ref} onSubmit={this.handle_submit.bind(this)}>
                         <div className="form_field select_symbol">
                             <label className="form_field-label" htmlFor="symbol">Пара</label>
-                            <select className="form_field-input form_field-select" name="symbol" id="symbol" onChange={
+                            {/* <select className="form_field-input form_field-select" name="symbol" id="symbol" onChange={
                                 (event)=>{this.change_symbol(event)}
-                            }>
+                                }>
                                 { this.state.symbols.map(
                                     (symbol, index) => (
-                                        <option key={symbol.first + '/' + symbol.second} value={symbol.first + '/' + symbol.second} chosen={(
-                                            this.state.symbol_chosen === (symbol.first + '/' + symbol.second) ? 'on' : 'off'
-                                        )}>{symbol.first + '/' + symbol.second}</option>
+                                <option key={symbol.first + '/' + symbol.second} value={symbol.first + '/' + symbol.second} chosen={(
+                                this.state.symbol_chosen === (symbol.first + '/' + symbol.second) ? 'on' : 'off'
+                                )}>{symbol.first + '/' + symbol.second}</option>
                                     )
                                 ) }
-                            </select>
+                            </select> */}
+                            <table className="form_field-content">
+                                <tbody>
+                                    { this.list_symbols(5).map((
+                                        (column, index) => (
+                                            <tr className="row" key={index.toString()}>
+                                                { column.map((
+                                                    (symbol, index) => (
+                                                        <td
+                                                            className={'option ' + (
+                                                                this.state.symbol_chosen === (
+                                                                    symbol.first + '/' + symbol.second
+                                                                ) ? 'chosen' : ''
+                                                            )}
+                                                            key={symbol.first + '/' + symbol.second}
+                                                        >
+                                                            <input
+                                                                required
+                                                                value={symbol.first + '/' + symbol.second}
+                                                                type="radio"
+                                                                name="symbol"
+                                                                onClick={( () => {
+                                                                    this.change_symbol(symbol.first + '/' + symbol.second)
+                                                                } ).bind(this)}
+                                                                id={symbol.first + '/' + symbol.second}
+                                                                chosen={(
+                                                                    this.state.symbol_chosen === (symbol.first + '/' + symbol.second) ? 'on' : 'off'
+                                                                )}></input>
+                                                            <label
+                                                                htmlFor={symbol.first + '/' + symbol.second}
+                                                            >{symbol.first + '/' + symbol.second}</label>
+                                                        </td>
+                                                    )
+                                                ).bind(this)) }
+                                            </tr>
+                                        )
+                                    ).bind(this)
+
+
+                                    ) }
+                                </tbody>
+                            </table>
                         </div>
                         <div className="form_field" style={{display:'none'}}>
                             <label className="form_field-label" htmlFor="">Вид ордера</label>

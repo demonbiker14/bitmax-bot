@@ -264,6 +264,7 @@ body {
 .form_field-select {
     background-color: #f3f3f3;
     text-align: center;
+    font-size: 0.9rem;
 }
 
 .new_order_button {
@@ -387,4 +388,35 @@ body {
 .quick_buttons_row .button_div {
     width: calc(100% / 3);
     margin: 0.3rem 0.3rem;
+}
+
+.form_field-content {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.row {
+
+}
+
+.option {
+    text-align: center;
+    border: 1px solid #616161;
+    font-weight: 600;
+    transition: 0.1s;
+}
+
+.option.chosen{
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.option label {
+    padding: 0.2rem 0.3rem;
+    width: 100%;
+    display: block;
+    cursor: pointer;
+}
+
+.option input {
+    display: none;
 }

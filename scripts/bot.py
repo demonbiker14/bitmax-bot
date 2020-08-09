@@ -1,7 +1,8 @@
 from api.bitmax_api import BitmaxREST_API
 from db.db_client import DBClient
-from db.models import OrderType, Status
+from db.models import OrderType, Status, ProcessingOrder
 from rest.rest_server import RestServer
+from api.sms_api import SMSApi
 
 import general
 import logging
@@ -13,12 +14,15 @@ import sys
 class MarketBot:
     class NoSuchOrderError(Exception):
         pass
-    def __init__(self, dbconfig, token, secret, server_pass):
+    def __init__(self, dbconfig, token, secret, server_pass, sms_login, sms_pass, sms_phone):
         self._dbconfig = dbconfig
         self._token = token
         self._secret = secret
         self._server_pass = server_pass
         self._logger = logging.getLogger(f'{general.logger_name}.market_bot')
+        self.sms_login = sms_login
+        self.sms_pass = sms_pass
+        self.sms_phone = sms_phone
         self.stopped = False
 
         # self._pending_tasks = asyncio.Queue()
@@ -32,6 +36,9 @@ class MarketBot:
                 logger=self._logger
             )
             await self.bitmax_api.__aenter__()
+
+            self.sms = SMSApi(self.sms_login, self.sms_pass)
+            await self.sms.__aenter__()
 
             self.ws = await self.bitmax_api.connect_ws()
             await self.ws.__aenter__()
@@ -48,6 +55,7 @@ class MarketBot:
         self.stopped = True
 
         # print("aexit")
+        await self.sms.__aexit__(*args, **kwargs)
         await self.ws.__aexit__(*args, **kwargs)
         await self.bitmax_api.__aexit__(*args, **kwargs)
         await self.dbclient.__aexit__(*args, **kwargs)
@@ -150,12 +158,21 @@ class MarketBot:
         async def handler(msg):
             if self.stopped:
                 return None
-            # elif msg['m'] == 'order':
-            #     order_id = msg['data']['orderId']
-            #     status = msg['data']['st']
-            #     # p_order = await ProcessingOrder.get_or_none(order_id)
-            #     if not p_order:
-            #         raise self.NoSuchOrderError(order_id)
+            if msg['m'] == 'order':
+                try:
+                    order_id = msg['data']['orderId']
+                    status = msg['data']['st']
+                    p_order = await ProcessingOrder.get_or_none(order_id=order_id)
+                    if status in ('Filled', 'PartiallyFilled'):
+                        raw = f'Ордер на бирже Bitmax сработал'
+                        await self.sms.send_sms([self.sms_phone], raw)
+                    elif status != 'New':
+                        self._logger.debug(status)
+                    if not p_order:
+                        raise self.NoSuchOrderError(order_id)
+                except Exception as exc:
+                    self._logger.exception(exc)
+                    raise exc
 
             # elif msg['m'] == 'depth':
             #     symbol = msg.get('symbol')
@@ -194,39 +211,45 @@ class MarketBot:
 
 
         await self.ws.handle_messages(close_exc=False)
-        # print('Result': result)
         return result
 
     async def handle_rate(self):
         while True:
             result = await self.bitmax_api.get('/ticker')
-            for symbol in result['data']:
-                orders = await self.get_orders_for_rate(symbol)
-                if not orders:
+            data = result.get('data')
+            if not data:
+                self._logger.debug(result)
+                continue
+            for symbol in data:
+                try:
+                    orders = await self.get_orders_for_rate(symbol)
+                    if not orders:
+                        continue
+                    bid_orders, ask_orders, symbol = orders
+
+                    if bid_orders:
+                        async for order in bid_orders:
+                            try:
+                                result = await self.place_order(
+                                    order=order,
+                                    ot='limit',
+                                )
+                            except Exception as exc:
+                                self._logger.exception(exc)
+                                raise exc
+                    if ask_orders:
+                        async for order in ask_orders:
+                            try:
+                                result = await self.place_order(
+                                    order=order,
+                                    ot='limit',
+                                )
+                            except Exception as exc:
+                                self._logger.exception(exc)
+                                raise exc
+                except Exception as exc:
+                    self._logger.exception(exc)
                     continue
-                bid_orders, ask_orders, symbol = orders
-
-                if bid_orders:
-                    async for order in bid_orders:
-                        try:
-                            result = await self.place_order(
-                                order=order,
-                                ot='limit',
-                            )
-                        except Exception as exc:
-                            self._logger.exception(exc)
-                            raise exc
-                if ask_orders:
-                    async for order in ask_orders:
-                        try:
-                            result = await self.place_order(
-                                order=order,
-                                ot='limit',
-                            )
-                        except Exception as exc:
-                            self._logger.exception(exc)
-                            raise exc
-
             await asyncio.sleep(0.5)
 
     async def send_from_queue(self):
@@ -287,7 +310,11 @@ if __name__ == '__main__':
             dbconfig=dbconfig,
             token=config['BITMAX']['KEY'],
             secret=config['BITMAX']['SECRET'],
-            server_pass=config['REST']['PASSWORD']
+            server_pass=config['REST']['PASSWORD'],
+            sms_login=config['SMS']['LOGIN'],
+            sms_pass=config['SMS']['PASSWORD'],
+            sms_phone=config['SMS']['PHONE'],
+
         )
         async with bot:
             # asyncio.create_task(bot.ws.handle_messages())
