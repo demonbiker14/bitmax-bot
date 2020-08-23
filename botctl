@@ -1,0 +1,12 @@
+working_directory="/home/danila/projects/apps/bitmax-bot"
+python_path="${working_directory}/env/bin/python3.8"
+
+case $1 in
+    start )
+        nohup $python_path -m scripts.bot > /dev/null 2>&1 &
+        echo $! > "${working_directory}/bot.pid"
+        ;;
+    stop )
+        kill $(cat "${working_directory}/bot.pid")
+    ;;
+esac

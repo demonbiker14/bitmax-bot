@@ -33,18 +33,20 @@ class MarketBot:
                 secret=self._secret,
                 logger=self._logger
             )
+            await self.bitmax_api.__aenter__()
+            
             self.sms = SMSApi(self.sms_login, self.sms_pass)
             self.ws = await self.bitmax_api.connect_ws()
             self.dbclient = DBClient(self._dbconfig)
 
-            await self.bitmax_api.__aenter__()
-            await self.sms.__aenter__()
             await self.ws.__aenter__()
+            await self.sms.__aenter__()
             await self.dbclient.__aenter__()
 
             self.stopped = False
-            
+
         except Exception as exc:
+            self._logger.exception(exc)
             await self.__aexit__()
             raise exc
 
@@ -55,8 +57,9 @@ class MarketBot:
             await self.ws.__aexit__(*args, **kwargs)
             await self.bitmax_api.__aexit__(*args, **kwargs)
             await self.dbclient.__aexit__(*args, **kwargs)
-        except Exception as e:
-            raise
+        except Exception as exc:
+            self._logger.exception(exc)
+            raise exc
 
     async def put_in_queue(self, item):
         await self._tasks.put(item)

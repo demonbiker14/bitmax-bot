@@ -12,3 +12,4 @@ nohup.out
 access_to_git
 access_to_git.pub
 manual
+*.pid
