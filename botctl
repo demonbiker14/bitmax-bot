@@ -1,4 +1,5 @@
-working_directory="/home/danila/projects/apps/bitmax-bot"
+# working_directory="/home/danila/projects/apps/bitmax-bot"
+source ./config
 python_path="${working_directory}/env/bin/python3.8"
 
 case $1 in
