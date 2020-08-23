@@ -25,8 +25,6 @@ class MarketBot:
         self.sms_phone = sms_phone
         self.stopped = False
 
-        # self._pending_tasks = asyncio.Queue()
-
     async def __aenter__(self):
         try:
             self._tasks = asyncio.Queue()
@@ -35,30 +33,30 @@ class MarketBot:
                 secret=self._secret,
                 logger=self._logger
             )
-            await self.bitmax_api.__aenter__()
-
             self.sms = SMSApi(self.sms_login, self.sms_pass)
-            await self.sms.__aenter__()
-
             self.ws = await self.bitmax_api.connect_ws()
-            await self.ws.__aenter__()
-
             self.dbclient = DBClient(self._dbconfig)
+
+            await self.bitmax_api.__aenter__()
+            await self.sms.__aenter__()
+            await self.ws.__aenter__()
             await self.dbclient.__aenter__()
 
             self.stopped = False
+            
         except Exception as exc:
             await self.__aexit__()
             raise exc
 
     async def __aexit__(self, *args, **kwargs):
         self.stopped = True
-
-        # print("aexit")
-        await self.sms.__aexit__(*args, **kwargs)
-        await self.ws.__aexit__(*args, **kwargs)
-        await self.bitmax_api.__aexit__(*args, **kwargs)
-        await self.dbclient.__aexit__(*args, **kwargs)
+        try:
+            await self.sms.__aexit__(*args, **kwargs)
+            await self.ws.__aexit__(*args, **kwargs)
+            await self.bitmax_api.__aexit__(*args, **kwargs)
+            await self.dbclient.__aexit__(*args, **kwargs)
+        except Exception as e:
+            raise
 
     async def put_in_queue(self, item):
         await self._tasks.put(item)

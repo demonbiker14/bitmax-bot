@@ -9,3 +9,6 @@ logs/**/*
 *.tar.xz
 nohup.out
 *.dump
+access_to_git
+access_to_git.pub
+manual
