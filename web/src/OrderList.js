@@ -9,22 +9,22 @@ class OrderList extends React.Component {
     delete_order(id) {
         api.api_method(`/delete/order/${id}`, {
             method: 'DELETE'
-        }).then((
-            (id, data) => {
-                let new_orders = this.state.orders;
-                let order_index = new_orders.findIndex((
-                    (id, order) => {
-                        return (order.id) === id
-                    }
-                ).bind(this, id));
-                new_orders.splice(order_index, 1);
-                this.setState({
-                    orders: new_orders,
-                });
-            }
-        ).bind(this, id)).catch((function (error) {
+        }).catch((function (error) {
             console.error(error);
         }).bind(this));
+
+        let new_orders = this.state.orders;
+        let order_index = new_orders.findIndex((
+            (id, order) => {
+                return (order.id) === id
+            }
+        ).bind(this, id));
+        new_orders.splice(order_index, 1);
+
+        this.setState({
+            orders: new_orders,
+        });
+
     }
     sort_by_field (field) {
         this.setState(function (state, props) {
@@ -238,15 +238,36 @@ export class NewOrder extends React.Component {
     }
 
     list_symbols (per_row=3) {
+
         let new_symbols = [];
-        for (let i = 0; i < Math.ceil(
-            this.state.symbols.length / per_row
-        ); i++) {
-            let subarray = this.state.symbols.slice(
-                i * per_row, i * per_row + per_row
-            );
-            new_symbols.push(subarray);
+        let old_symbols = this.state.symbols;
+        let length = this.state.symbols.length;
+        let height = Math.floor(length / per_row);
+        let left = length % per_row;
+
+        for (let i = 0; i < height; i++) {
+            let row = [];
+            for (let l = 0; l < per_row; l++) {
+                let index;
+                if (l <= left - 1) {
+                    index = l * (height + 1) + i;
+                } else {
+                    index = left * (height + 1) + height * (l - left) + i;
+                }
+                console.log(`Index ${index}`);
+                // console.log(index);
+                row.push(old_symbols[index]);
+            }
+
+            new_symbols.push(row);
         }
+        let last_row = [];
+        for (let i = 0; i < left; i++) {
+            let index = (i + 1) * height + i
+            last_row.push(old_symbols[index]);
+        }
+        new_symbols.push(last_row);
+
         return new_symbols;
     }
 
@@ -368,8 +389,6 @@ export class NewOrder extends React.Component {
         ).then((function (data) {
             this.props.change_page('list-orders')
         }).bind(this));
-        event.preventDefault();
-
     }
 
     render () {
@@ -422,7 +441,7 @@ export class NewOrder extends React.Component {
                 ) }
                 {this.state.status === 'error' && (<h3>Ошибка доступа к серверу</h3>)}
                 {this.state.status === 'loaded' && (
-                    <form ref={this.form_ref} onSubmit={this.handle_submit.bind(this)}>
+                    <form ref={this.form_ref}>
                         <div className="form_field select_symbol">
                             <label className="form_field-label" htmlFor="symbol">Пара</label>
                             {/* <select className="form_field-input form_field-select" name="symbol" id="symbol" onChange={
@@ -452,7 +471,6 @@ export class NewOrder extends React.Component {
                                                             key={symbol.first + '/' + symbol.second}
                                                         >
                                                             <input
-                                                                required
                                                                 value={symbol.first + '/' + symbol.second}
                                                                 type="radio"
                                                                 name="symbol"
@@ -460,8 +478,8 @@ export class NewOrder extends React.Component {
                                                                     this.change_symbol(symbol.first + '/' + symbol.second)
                                                                 } ).bind(this)}
                                                                 id={symbol.first + '/' + symbol.second}
-                                                                chosen={(
-                                                                    this.state.symbol_chosen === (symbol.first + '/' + symbol.second) ? 'on' : 'off'
+                                                                defaultChecked={(
+                                                                    this.state.symbol_chosen === (symbol.first + '/' + symbol.second) && 'checked'
                                                                 )}></input>
                                                             <label
                                                                 htmlFor={symbol.first + '/' + symbol.second}
@@ -524,7 +542,11 @@ export class NewOrder extends React.Component {
                                 )
                             ).bind(this)) }
                         </div>
-                        <button className="button new_order_button" type="submit">Создать ордер</button>
+                        <button
+                            className="button new_order_button"
+                            onClick={this.handle_submit.bind(this)}
+                            type="button"
+                        >Создать ордер</button>
                     </form>
                 )}
             </div>
