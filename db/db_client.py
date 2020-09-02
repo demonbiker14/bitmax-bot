@@ -133,6 +133,9 @@ class DBClient:
             raise exc
         return symbol
 
+    async def download_db():
+        pass
+
 
 if __name__ == '__main__':
     client = DBClient(dbconfig=dbconfig)

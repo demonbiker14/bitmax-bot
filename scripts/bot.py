@@ -23,7 +23,6 @@ class MarketBot:
         self.sms_login = sms_login
         self.sms_pass = sms_pass
         self.sms_phone = sms_phone
-        self.stopped = False
 
     async def __aenter__(self):
         try:
@@ -34,7 +33,7 @@ class MarketBot:
                 logger=self._logger
             )
             await self.bitmax_api.__aenter__()
-            
+
             self.sms = SMSApi(self.sms_login, self.sms_pass)
             self.ws = await self.bitmax_api.connect_ws()
             self.dbclient = DBClient(self._dbconfig)
@@ -43,15 +42,12 @@ class MarketBot:
             await self.sms.__aenter__()
             await self.dbclient.__aenter__()
 
-            self.stopped = False
 
         except Exception as exc:
             self._logger.exception(exc)
-            await self.__aexit__()
             raise exc
 
     async def __aexit__(self, *args, **kwargs):
-        self.stopped = True
         try:
             await self.sms.__aexit__(*args, **kwargs)
             await self.ws.__aexit__(*args, **kwargs)
@@ -157,8 +153,6 @@ class MarketBot:
     async def handle_data(self):
         @self.ws.add_dispatcher(name='receiver')
         async def handler(msg):
-            if self.stopped:
-                return None
             if msg['m'] == 'order':
                 try:
                     order_id = msg['data']['orderId']
@@ -294,11 +288,13 @@ class MarketBot:
         try:
             self.server = asyncio.create_task(self.api_server())
             self.bot_handler = asyncio.create_task(self.bot())
-            await asyncio.gather(
+            self.running = asyncio.gather(
                 self.server,
                 self.bot_handler,
             )
+            await self.running
         except asyncio.CancelledError as exc:
+            self._logger.exception(exc)
             await self.__aexit__()
             raise exc
 
@@ -318,12 +314,5 @@ if __name__ == '__main__':
 
         )
         async with bot:
-            # asyncio.create_task(bot.ws.handle_messages())
             await bot.run()
-            # await bot.update_symbols()
     asyncio.run(main())
-
-    # async def main():
-    #     async with bot:
-    #         await bot.run()
-    # asyncio.run(main())

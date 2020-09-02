@@ -11,6 +11,7 @@ import tempfile
 import subprocess
 import os
 import os.path
+import ssl
 
 logger = logging.getLogger(f'{general.logger_name}.web')
 handler = logging.FileHandler('logs/web.log', mode='a+')
@@ -30,12 +31,32 @@ class RestServer:
         self._port = port
         self._password = password
         self._app = web.Application(middlewares=[
+            self.password_middleware,
             self.blocking_middleware,
             self.cors_middleware,
         ])
         self._prefix = '/api'
         self.bot = bot
+        self.ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        self.ssl_context.load_cert_chain(
+            os.path.join(general.KEY_DIR, 'key.crt'),
+            os.path.join(general.KEY_DIR, 'key.key'),
+        )
         self.set_views()
+
+    @web.middleware
+    async def password_middleware(self, request, handler):
+        password = request.query.get('password')
+        if password == self._password:
+            try:
+                response = await handler(request)
+                return response
+            except Exception as exc:
+                logger.debug(request)
+                logger.exception(exc)
+                raise exc
+        else:
+            return web.Response(body='not allowed', status=403)
 
     @web.middleware
     async def blocking_middleware(self, request, handler):
@@ -204,8 +225,6 @@ class RestServer:
 
     async def download_db(self, request):
         async with asyncio.Lock():
-            self.bot.stopped = True
-
             db_path = os.path.join(general.BASE_DIR, DB_PATH)
 
             @aiohttp.streamer
@@ -225,11 +244,7 @@ class RestServer:
                     'Content-Disposition': 'Attachment;filename=db.dump',
                 },
             )
-                # for chunk in dump_file:
-                #     await response.write(chunk)
-                # await response.write_eof()
 
-            self.bot.stopped = False
             return response
 
     async def upload_db(self, request):
@@ -250,33 +265,30 @@ class RestServer:
                     )
                 except Exception:
                     pass
-                self.bot.bot_handler.cancel()
+
+                self.bot.bot_handler.cancel
                 await self.bot.__aexit__()
-                db_path = os.path.join(general.BASE_DIR, DB_PATH)
-                if os.path.exists(db_path):
-                    os.remove(db_path)
-                open(db_path, 'w+').close()
 
-                p1 = subprocess.Popen(
-                    ['sqlite3', db_path],
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE)
-                while True:
-                    chunk = await part.read_chunk()
-                    if not chunk:
-                        break
-                    p1.stdin.write(chunk)
+                async with asyncio.Lock():
+                    db_path = os.path.join(general.BASE_DIR, DB_PATH)
+                    if os.path.exists(db_path):
+                        os.remove(db_path)
+                    open(db_path, 'w+').close()
 
-                p1.communicate()
-                p1.stdin.close()
+                    p1 = subprocess.Popen(
+                        ['sqlite3', db_path],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE)
+                    while True:
+                        chunk = await part.read_chunk()
+                        if not chunk:
+                            break
+                        p1.stdin.write(chunk)
 
-                try:
-                    await self.bot.__aenter__()
-                except Exception:
-                    await asyncio.sleep(0.5)
-                    await self.bot.__aenter__()
-                # await self.bot.subscribe_to_all_channels()
-                asyncio.create_task(self.bot.bot())
+                    p1.communicate()
+                    p1.stdin.close()
+
+                await self.bot.__aenter__()
 
         return web.Response(text='response')
 
@@ -300,7 +312,12 @@ class RestServer:
     async def run(self):
         runner = web.AppRunner(self._app)
         await runner.setup()
-        site = web.TCPSite(runner, self._host, self._port)
+        site = web.TCPSite(
+            runner,
+            self._host,
+            self._port,
+            ssl_context=self.ssl_context
+        )
         await site.start()
         while True:
             await asyncio.sleep(60*60)

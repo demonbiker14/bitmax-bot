@@ -188,7 +188,11 @@ class BitmaxWebSocket:
         return response
 
     async def dispatch(self, message):
-        if message.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSING):
+        if message.type in (
+            aiohttp.WSMsgType.CLOSE,
+            aiohttp.WSMsgType.CLOSED,
+            aiohttp.WSMsgType.CLOSING,
+        ):
             exc = self.WSClosed('WebSocket apparently closed')
             self._logger.debug(message)
             raise exc
@@ -236,13 +240,6 @@ if __name__ == '__main__':
             secret=config['BITMAX']['SECRET']
         )
         async with api:
-            # bitmax_ws = await api.connect_ws()
-
-            # @bitmax_ws.add_dispatcher(name='handler')
-            # async def handler(msg):
-            #     pprint.pprint(msg)
-
-
             result = await api.place_order(
                 symbol='BTMX/USDT',
                 # price=0.02,

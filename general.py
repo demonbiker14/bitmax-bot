@@ -9,7 +9,10 @@ from config import config
 
 DEBUG = config.get('DEBUG', False)
 
+
 BASE_DIR = os.getcwd()
+KEY_DIR = os.path.join(BASE_DIR, 'ssl_key')
+
 DB_NAME = 'db/db.sqlite3'
 
 dbconfig = {

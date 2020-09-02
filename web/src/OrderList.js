@@ -254,7 +254,6 @@ export class NewOrder extends React.Component {
                 } else {
                     index = left * (height + 1) + height * (l - left) + i;
                 }
-                console.log(`Index ${index}`);
                 // console.log(index);
                 row.push(old_symbols[index]);
             }

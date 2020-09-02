@@ -14,3 +14,4 @@ access_to_git.pub
 manual
 *.pid
 config
+ssl_key/*
