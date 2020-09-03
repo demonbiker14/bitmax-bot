@@ -37,11 +37,11 @@ class RestServer:
         ])
         self._prefix = '/api'
         self.bot = bot
-        self.ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        self.ssl_context.load_cert_chain(
-            os.path.join(general.KEY_DIR, 'key.crt'),
-            os.path.join(general.KEY_DIR, 'key.key'),
-        )
+        # self.ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        # self.ssl_context.load_cert_chain(
+        #     os.path.join(general.KEY_DIR, 'key.crt'),
+        #     os.path.join(general.KEY_DIR, 'key.key'),
+        # )
         self.set_views()
 
     @web.middleware
@@ -316,7 +316,7 @@ class RestServer:
             runner,
             self._host,
             self._port,
-            ssl_context=self.ssl_context
+            # ssl_context=self.ssl_context
         )
         await site.start()
         while True:
