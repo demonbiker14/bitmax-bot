@@ -6,6 +6,18 @@ import { BUY, SELL } from './config';
 
 class OrderList extends React.Component {
 
+    delete_all() {
+        api.api_method(`/delete/order/all`, {
+            method: 'DELETE'
+        }).then((()=>{
+            this.setState({
+                orders: []
+            });
+        }).bind(this)).catch((function (error) {
+            console.error(error);
+        }).bind(this));
+    }
+
     delete_order(id) {
         api.api_method(`/delete/order/${id}`, {
             method: 'DELETE'
@@ -52,6 +64,7 @@ class OrderList extends React.Component {
     new_order () {
         this.props.change_page('new_order')
     }
+
     constructor (props) {
         super(props)
         this.state = {
@@ -186,6 +199,13 @@ class OrderList extends React.Component {
                                 </tbody>
                             </table>
                         </div>
+                        <button
+                            className="button delete_all_button"
+                            type="button"
+                            onClick={this.delete_all.bind(this)}
+                        >
+                            Удалить все
+                        </button>
                     </div>
                 )}
                 {this.state.status === 'loading' && (

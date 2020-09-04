@@ -1,10 +1,11 @@
 from aiohttp import web, web_exceptions
 from config import config
-from db.models import Symbol, OrderType
+from db.models import Symbol, OrderType, Order
 
 import asyncio
 import aiohttp
 import general
+import json
 import logging
 import math
 import tempfile
@@ -31,7 +32,7 @@ class RestServer:
         self._port = port
         self._password = password
         self._app = web.Application(middlewares=[
-            self.password_middleware,
+            # self.password_middleware,
             self.blocking_middleware,
             self.cors_middleware,
         ])
@@ -44,19 +45,19 @@ class RestServer:
         # )
         self.set_views()
 
-    @web.middleware
-    async def password_middleware(self, request, handler):
-        password = request.query.get('password')
-        if password == self._password:
-            try:
-                response = await handler(request)
-                return response
-            except Exception as exc:
-                logger.debug(request)
-                logger.exception(exc)
-                raise exc
-        else:
-            return web.Response(body='not allowed', status=403)
+    # @web.middleware
+    # async def password_middleware(self, request, handler):
+    #     password = request.query.get('password')
+    #     if password == self._password:
+    #         try:
+    #             response = await handler(request)
+    #             return response
+    #         except Exception as exc:
+    #             logger.debug(request)
+    #             logger.exception(exc)
+    #             raise exc
+    #     else:
+    #         return web.Response(body='not allowed', status=403)
 
     @web.middleware
     async def blocking_middleware(self, request, handler):
@@ -122,7 +123,10 @@ class RestServer:
         object = request.match_info['object']
         if object == 'order':
             order_pk = request.match_info['id']
-            order = await self.bot.dbclient.delete_order(int(order_pk))
+            if order_pk == 'all':
+                await Order.all().delete()
+            else:
+                order = await self.bot.dbclient.delete_order(int(order_pk))
             # print(order.to_str())
             return web.json_response({})
         elif object == 'button':
@@ -224,28 +228,23 @@ class RestServer:
             raise web_exceptions.HTTPNotFound(reason="Unknown object")
 
     async def download_db(self, request):
-        async with asyncio.Lock():
-            db_path = os.path.join(general.BASE_DIR, DB_PATH)
+        orders = await (await self.bot.dbclient.list_orders())
+        data = {'orders':[]}
 
-            @aiohttp.streamer
-            async def get_dump_file(writer, dump_file):
-                with dump_file:
-                    chunk = dump_file.read(2 ** 16)
-                    while chunk:
-                        await writer.write(chunk)
-                        chunk = dump_file.read(2 ** 16)
+        for order in orders:
+            order = await order.to_dict()
+            data['orders'].append(order)
 
-            p1 = subprocess.Popen([
-                    'sqlite3', db_path, '.dump'
-                ], stdout=subprocess.PIPE)
-            response = web.Response(
-                body=get_dump_file(p1.stdout),
-                headers={
-                    'Content-Disposition': 'Attachment;filename=db.dump',
-                },
-            )
+        data = json.dumps(data)
 
-            return response
+        response = web.Response(
+            body=data,
+            headers={
+                'Content-Disposition': 'Attachment;filename=db.dump',
+            },
+        )
+
+        return response
 
     async def upload_db(self, request):
         reader = await request.multipart()
@@ -256,39 +255,29 @@ class RestServer:
             if part.name == 'file':
                 if not part.filename:
                     raise web_exceptions.HTTPBadRequest()
-                try:
-                    await self.bot.ws.send_json(
-                        op='unsub',
-                        data={
-                            'ch': 'order:cash',
-                        }
-                    )
-                except Exception:
-                    pass
 
-                self.bot.bot_handler.cancel
-                await self.bot.__aexit__()
+                data = json.loads(await part.text())
+                for order in data['orders']:
+                    first, second = order['symbol'].split('/')
+                    symbol = await self.bot.dbclient.get_symbol(first, second)
 
-                async with asyncio.Lock():
-                    db_path = os.path.join(general.BASE_DIR, DB_PATH)
-                    if os.path.exists(db_path):
-                        os.remove(db_path)
-                    open(db_path, 'w+').close()
+                    trigger_price = float(order['trigger_price'])
+                    price = float(order['price'])
+                    order_type = int(order['order_type'])
+                    volume = float(order['volume'])
 
-                    p1 = subprocess.Popen(
-                        ['sqlite3', db_path],
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE)
-                    while True:
-                        chunk = await part.read_chunk()
-                        if not chunk:
-                            break
-                        p1.stdin.write(chunk)
+                    try:
+                        order = await self.bot.dbclient.add_order(
+                            symbol=symbol,
+                            order_type=order_type,
+                            trigger_price=trigger_price,
+                            price=price,
+                            volume=volume
+                        )
+                    except Exception as exc:
+                        logger.exception(exc)
+                        raise exc
 
-                    p1.communicate()
-                    p1.stdin.close()
-
-                await self.bot.__aenter__()
 
         return web.Response(text='response')
 

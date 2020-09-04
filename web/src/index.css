@@ -420,3 +420,7 @@ body {
 .option input {
     display: none;
 }
+
+.delete_all_button {
+    margin-top: 0.3rem;
+}
