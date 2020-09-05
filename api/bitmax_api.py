@@ -230,6 +230,9 @@ class BitmaxWebSocket:
                     await self.__aenter__()
             except Exception as exc:
                 raise exc
+                await self.__aexit__()
+                await asyncio.sleep(1)
+                await self.__aenter__()
 
 
 
