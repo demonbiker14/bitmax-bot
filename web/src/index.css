@@ -422,5 +422,28 @@ body {
 }
 
 .delete_all_button {
-    margin-top: 0.3rem;
+    margin-bottom: 0.3rem;
+    width: 10rem;
+    background-color: #ff2400;
+    /* color */
+}
+
+.delete_all_button:hover {
+    background-color: rgba(255, 36, 0, 0.6);
+}
+
+.button_container_right{
+    display: -webkit-flex;
+    display: -ms-flex;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.order_button_container{
+    margin-bottom: 0.8rem;
+}
+
+.order_chosen_label {
+    font-size: 1.6rem;
 }

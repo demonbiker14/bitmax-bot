@@ -31,9 +31,9 @@ dbconfig = {
 
 logger_name = 'bitmax_bot'
 logger_file = os.path.join(BASE_DIR, 'logs/bitmax.log')
-logger_level = logging.DEBUG if DEBUG else logging.WARNING
+logger_level = logging.DEBUG if DEBUG else logging.INFO
 logger_formatter = logging.Formatter(
-    r'[%(asctime)s] %(message)s', r'%H:%M:%S %d.%m.%Y'
+    r'[%(asctime)s] level=%(levelname)s  %(message)s', r'%H:%M:%S %d.%m.%Y'
 )
 
 root_logger = logging.getLogger(logger_name)
@@ -41,6 +41,8 @@ root_logger.setLevel(logger_level)
 
 if DEBUG:
     stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.logger_level)
+    stream_handler.setFormatter(logger_formatter)
     root_logger.addHandler(stream_handler)
 
 rotating_file_handler = logging.handlers.RotatingFileHandler(

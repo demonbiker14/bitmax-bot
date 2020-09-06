@@ -14,12 +14,15 @@ import sys
 class MarketBot:
     class NoSuchOrderError(Exception):
         pass
-    def __init__(self, dbconfig, token, secret, server_pass, sms_login, sms_pass, sms_phone):
+    def __init__(self, dbconfig, token, secret, server_pass, sms_on, sms_login, sms_pass, sms_phone, damping, damp_count):
         self._dbconfig = dbconfig
         self._token = token
+        self.damping = damping
+        self.damp_count = damp_count
         self._secret = secret
         self._server_pass = server_pass
         self._logger = logging.getLogger(f'{general.logger_name}.market_bot')
+        self.sms_on = sms_on
         self.sms_login = sms_login
         self.sms_pass = sms_pass
         self.sms_phone = sms_phone
@@ -71,17 +74,19 @@ class MarketBot:
             self._logger.exception(exc)
             raise exc
 
-    async def damp(self, order, damping_left):
+    async def damp(self, order, p_order, damping_left):
         self._logger.debug(f'damping {damping_left}')
         if damping_left == 0:
             return None
         await self.place_order(
             order=order,
-            damping_left=(damping_left - 1)
+            p_order=p_order,
+            damp_count=(damping_left - 1)
         )
 
-    async def place_order(self, order, ot='limit', damping_left=200):
-        p_order = await order.make_processing(None)
+    async def place_order(self, order, p_order, ot='limit', damp_count=None):
+        if not damp_count:
+            damp_count = self.damp_count
         status = Status.PROCESSING
         symbol = str(await order.symbol)
         order_side = 'buy' if order.order_type == OrderType.BUY else 'sell'
@@ -94,18 +99,29 @@ class MarketBot:
             post_only=False,
             resp_inst='ACK'
         )
-        if result['code'] in config['DAMPING_CODES']:
-            if config['DAMPING']:
-                self._logger.debug(result)
-                await asyncio.sleep(0.5)
-                asyncio.create_task(self.damp(order, damping_left))
-        else:
-            self._logger.debug(result)
-            order_id = result['data']['info']['orderId']
-            p_order.order_id = order_id
-            await p_order.save()
-        return result
-
+        self._logger.warning(result)
+        try:
+            if result['code'] in config['DAMPING_CODES']:
+                if config['DAMPING']:
+                    await asyncio.sleep(0.5)
+                    asyncio.create_task(self.damp(
+                        order=order,
+                        p_order=p_order,
+                        damping_left=damp_count,
+                    ))
+            elif result['code'] == 0:
+                order_id = result['data']['info']['orderId']
+                # print(order_id)
+                p_order.order_id = order_id
+                await p_order.save()
+                return result
+            else:
+                await p_order.delete()
+                self._logger.error(result)
+        except Exception as exc:
+            self._logger.error(result)
+            self._logger.exception(exc)
+            raise exc
     async def add_symbols(self, *args, **kwargs):
         try:
             await self.dbclient.add_symbols(*args, **kwargs)
@@ -137,7 +153,7 @@ class MarketBot:
                 return None
             symbol = await self.dbclient.get_symbol(*symbol.split('/'))
         except self.dbclient.NoSymbolExists as exc:
-            self._logger.debug(f'No symbol: {symbol}')
+            self._logger.warning(f'No symbol: {symbol}')
             return None
         except Exception as exc:
             self._logger.exception(exc)
@@ -157,53 +173,18 @@ class MarketBot:
                 try:
                     order_id = msg['data']['orderId']
                     status = msg['data']['st']
-                    p_order = await ProcessingOrder.get_or_none(order_id=order_id)
+                    # p_order = await ProcessingOrder.get_or_none(order_id=order_id)
                     if status in ('Filled', 'PartiallyFilled'):
                         raw = f'Ордер на бирже Bitmax сработал'
-                        await self.sms.send_sms([self.sms_phone], raw)
+                        if self.sms_on:
+                            await self.sms.send_sms([self.sms_phone], raw)
                     elif status != 'New':
-                        self._logger.debug(status)
-                    if not p_order:
-                        raise self.NoSuchOrderError(order_id)
+                        self._logger.info(status)
+                    # if not p_order:
+                    #     raise self.NoSuchOrderError(order_id)
                 except Exception as exc:
                     self._logger.exception(exc)
                     raise exc
-
-            # elif msg['m'] == 'depth':
-            #     symbol = msg.get('symbol')
-            #     data = msg.get('data')
-            #     if not (data and symbol):
-            #         raise ValueError(msg)
-            #     orders = await self.get_orders_from_msg(msg)
-            #     if not orders:
-            #         return None
-            #     bid_orders, ask_orders, symbol = orders
-            #
-            #     try:
-            #         if bid_orders:
-            #             async for order in bid_orders:
-            #                 try:
-            #                     result = await self.place_order(
-            #                         order=order,
-            #                         ot='limit',
-            #                     )
-            #                 except Exception as exc:
-            #                     self._logger.exception(exc)
-            #                     raise exc
-            #         if ask_orders:
-            #             async for order in ask_orders:
-            #                 try:
-            #                     result = await self.place_order(
-            #                         order=order,
-            #                         ot='limit',
-            #                     )
-            #                 except Exception as exc:
-            #                     self._logger.exception(exc)
-            #                     raise exc
-            #     except Exception as exc:
-            #         self._logger.exception(exc)
-            #         raise exc
-
 
         await self.ws.handle_messages(close_exc=False)
         return result
@@ -213,7 +194,7 @@ class MarketBot:
             result = await self.bitmax_api.get('/ticker')
             data = result.get('data')
             if not data:
-                self._logger.debug(result)
+                self._logger.error(result)
                 continue
             for symbol in data:
                 try:
@@ -225,8 +206,10 @@ class MarketBot:
                     if bid_orders:
                         async for order in bid_orders:
                             try:
+                                p_order = await order.make_processing(None)
                                 result = await self.place_order(
                                     order=order,
+                                    p_order=p_order,
                                     ot='limit',
                                 )
                             except Exception as exc:
@@ -235,8 +218,10 @@ class MarketBot:
                     if ask_orders:
                         async for order in ask_orders:
                             try:
+                                p_order = await order.make_processing(None)
                                 result = await self.place_order(
                                     order=order,
+                                    p_order=p_order,
                                     ot='limit',
                                 )
                             except Exception as exc:
@@ -305,9 +290,12 @@ if __name__ == '__main__':
     async def main():
         bot = MarketBot(
             dbconfig=dbconfig,
+            damping=config.get('DAMPING', False),
+            damp_count=config.get('DAMP_COUNT', 200),
             token=config['BITMAX']['KEY'],
             secret=config['BITMAX']['SECRET'],
             server_pass=config['REST']['PASSWORD'],
+            sms_on=config['SMS'].get('ON', False),
             sms_login=config['SMS']['LOGIN'],
             sms_pass=config['SMS']['PASSWORD'],
             sms_phone=config['SMS']['PHONE'],

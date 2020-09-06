@@ -113,7 +113,16 @@ class OrderList extends React.Component {
             <div>
                 { this.state.status === 'loaded' && (
                     <div className="list order_list">
-                        <h2 className="main__site_title">{header2}</h2>
+                        <div className="container button_container_right order_button_container">
+                            <h2 className="main__site_title">{header2}</h2>
+                            <button
+                                className="button delete_all_button"
+                                type="button"
+                                onClick={this.delete_all.bind(this)}
+                            >
+                                Удалить все
+                            </button>
+                        </div>
                         {this.props.symbol && (
                             <div ref={this.exchange_ref} className="exchange">
                                 {this.state.exchange_rate ? (
@@ -199,13 +208,7 @@ class OrderList extends React.Component {
                                 </tbody>
                             </table>
                         </div>
-                        <button
-                            className="button delete_all_button"
-                            type="button"
-                            onClick={this.delete_all.bind(this)}
-                        >
-                            Удалить все
-                        </button>
+
                     </div>
                 )}
                 {this.state.status === 'loading' && (
@@ -463,17 +466,6 @@ export class NewOrder extends React.Component {
                     <form ref={this.form_ref}>
                         <div className="form_field select_symbol">
                             <label className="form_field-label" htmlFor="symbol">Пара</label>
-                            {/* <select className="form_field-input form_field-select" name="symbol" id="symbol" onChange={
-                                (event)=>{this.change_symbol(event)}
-                                }>
-                                { this.state.symbols.map(
-                                    (symbol, index) => (
-                                <option key={symbol.first + '/' + symbol.second} value={symbol.first + '/' + symbol.second} chosen={(
-                                this.state.symbol_chosen === (symbol.first + '/' + symbol.second) ? 'on' : 'off'
-                                )}>{symbol.first + '/' + symbol.second}</option>
-                                    )
-                                ) }
-                            </select> */}
                             <table className="form_field-content">
                                 <tbody>
                                     { this.list_symbols(5).map((
@@ -532,14 +524,13 @@ export class NewOrder extends React.Component {
                             <label className="form_field-label" htmlFor="">Объем</label>
                             <input className="form_field-input" required type="text" name="volume"/>
                         </div>
+                        <div className="form_field">
+                            <p className="form_field-label order_chosen_label">
+                                { this.state.chosen === BUY ?
+                                'Покупка' : 'Продажа' }
+                            </p>
+                        </div>
                         <div className="quick_buttons">
-                            {/* { this.state.buttons.map((
-                                (button, i) => {
-                                    return (
-
-                                    )
-                                }
-                            ).bind(this)) } */}
                             { this.list_buttons(3).map((
                                 (row, i) => (
                                     <div
