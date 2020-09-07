@@ -99,7 +99,9 @@ class MarketBot:
             post_only=False,
             resp_inst='ACK'
         )
+        self._logger.warning('Placed order')
         self._logger.warning(result)
+        self._logger.warning(await p_order.to_str())
         try:
             if result['code'] in config['DAMPING_CODES']:
                 if config['DAMPING']:
@@ -117,7 +119,7 @@ class MarketBot:
                 return result
             else:
                 await p_order.delete()
-                self._logger.error(result)
+                # self._logger.error(result)
         except Exception as exc:
             self._logger.error(result)
             self._logger.exception(exc)
@@ -173,15 +175,12 @@ class MarketBot:
                 try:
                     order_id = msg['data']['orderId']
                     status = msg['data']['st']
-                    # p_order = await ProcessingOrder.get_or_none(order_id=order_id)
                     if status in ('Filled', 'PartiallyFilled'):
                         raw = f'Ордер на бирже Bitmax сработал'
                         if self.sms_on:
                             await self.sms.send_sms([self.sms_phone], raw)
                     elif status != 'New':
                         self._logger.info(status)
-                    # if not p_order:
-                    #     raise self.NoSuchOrderError(order_id)
                 except Exception as exc:
                     self._logger.exception(exc)
                     raise exc
