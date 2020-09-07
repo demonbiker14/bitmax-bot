@@ -107,7 +107,7 @@ class Order(Model):
         symbol = await self.symbol
         order_type = 'BUY' if self.order_type == OrderType.BUY else 'SELL'
         return (
-            f'{str(symbol)} {order_type} Trigger: {self.trigger_price} Actual: {self.price} at {str(self.add_timestamp)}'
+            f'{str(symbol)} {order_type} Trigger: {self.trigger_price} Actual: {self.price} at {str(self.add_timestamp)} Volume: {self.volume}'
         )
 
 class Status(enum.IntEnum):
@@ -139,7 +139,7 @@ class ProcessingOrder(Model):
         symbol = await self.symbol
         order_type = 'BUY' if self.order_type == OrderType.BUY else 'SELL'
         return (
-            f'{str(symbol)} {order_type} Actual: {self.price} Status: {str(self.status)}'
+            f'{str(symbol)} {order_type} Actual: {self.price} Status: {str(self.status)} Volume: {self.volume}'
         )
 
 class QuickButton(Model):
