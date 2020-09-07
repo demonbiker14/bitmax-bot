@@ -195,7 +195,6 @@ class BitmaxWebSocket:
         ):
             exc = self.WSClosed(f'WebSocket apparently closed\n{message}')
             self._logger.debug(message)
-            self._logger.exception(exc)
             raise exc
         elif message.type != aiohttp.WSMsgType.TEXT:
             exc = ValueError(f'Non-text message\n{message}')
@@ -222,6 +221,7 @@ class BitmaxWebSocket:
                 message = await self._ws_connection.receive()
                 message = await self.dispatch(message)
             except self.WSClosed:
+                self._logger.exception(exc)
                 if close_exc:
                     raise exc
                 else:

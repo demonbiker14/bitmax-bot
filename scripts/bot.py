@@ -186,7 +186,12 @@ class MarketBot:
                     self._logger.exception(exc)
                     raise exc
 
-        await self.ws.handle_messages(close_exc=False)
+        while True:
+            try:
+                await self.ws.handle_messages(close_exc=False)
+            except self.ws.WSClosed as exc:
+                continue
+
         return result
 
     async def handle_rate(self):
