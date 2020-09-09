@@ -224,10 +224,10 @@ class BitmaxWebSocket:
                 self._logger.exception(exc)
                 if close_exc:
                     raise exc
-                else:
-                    await self.__aexit__()
-                    await asyncio.sleep(1)
-                    await self.__aenter__()
+                # else:
+                    # await self.__aexit__()
+                    # await asyncio.sleep(1)
+                    # await self.__aenter__()
             except Exception as exc:
                 # await self.__aexit__()
                 # await asyncio.sleep(1)

@@ -250,10 +250,6 @@ class MarketBot:
             'id': id,
         })
 
-    # async def subscribe_to_all_channels(self):
-    #     await self.subscribe_to_channel(
-    #         f'order:cash', id='abc')
-
     async def bot(self):
         try:
             await self.subscribe_to_channel(
