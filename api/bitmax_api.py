@@ -157,6 +157,9 @@ class BitmaxWebSocket:
     def _session(self):
         return self._api.session
 
+    def is_closed(self):
+        return self._ws_connection.closed
+
 
     def add_dispatcher(self, name=None):
         def decorator(func):
@@ -216,22 +219,18 @@ class BitmaxWebSocket:
     async def handle_messages(self, close_exc=True):
         while True:
             try:
-                if self._ws_connection.closed:
+                if self.is_closed():
                     raise self.WSClosed('WebSocket apparently closed')
                 message = await self._ws_connection.receive()
                 message = await self.dispatch(message)
-            except self.WSClosed:
+            except self.WSClosed as exc:
                 self._logger.exception(exc)
                 if close_exc:
                     raise exc
-                # else:
-                    # await self.__aexit__()
-                    # await asyncio.sleep(1)
-                    # await self.__aenter__()
+                await self.__aenter__()
+                continue
             except Exception as exc:
-                # await self.__aexit__()
-                # await asyncio.sleep(1)
-                # await self.__aenter__()
+                self._logger.exception(exc)
                 raise exc
 
 
@@ -244,15 +243,27 @@ if __name__ == '__main__':
             secret=config['BITMAX']['SECRET']
         )
         async with api:
-            result = await api.place_order(
-                symbol='BTMX/USDT',
-                # price=0.02,
-                size=1,
-                order_type='market',
-                order_side='sell',
-                time_in_force='IOC'
-            )
-            # pprint.pprint(result)
+            bitmax_ws = await api.connect_ws()
+
+            await bitmax_ws.__aenter__()
+            print(bitmax_ws.is_closed())
+
+            await bitmax_ws.__aexit__()
+            print(bitmax_ws.is_closed())
+            await bitmax_ws.__aexit__()
+            print(bitmax_ws.is_closed())
+
+            await bitmax_ws.__aenter__()
+            print(bitmax_ws.is_closed())
+
+            await bitmax_ws.__aenter__()
+            print(bitmax_ws.is_closed())
+
+
+            await bitmax_ws.__aexit__()
+            print(bitmax_ws.is_closed())
+
+
             # async with bitmax_ws:
                 # account = await api.get('/info')
                 # await bitmax_ws.send_json('sub', data={
