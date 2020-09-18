@@ -66,7 +66,7 @@ class RestServer:
                 response = await handler(request)
                 return response
             except Exception as exc:
-                logger.debug(request)
+                logger.error(request)
                 logger.exception(exc)
                 raise exc
         else:
@@ -80,7 +80,7 @@ class RestServer:
             response = await handler(request)
             # print(response)
         except Exception as exc:
-            logger.debug(request)
+            logger.error(request)
             logger.exception(exc)
             raise exc
         response.headers['Access-Control-Allow-Origin'] = '*'
