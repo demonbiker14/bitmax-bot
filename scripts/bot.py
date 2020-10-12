@@ -243,10 +243,10 @@ class MarketBot:
             if not data:
                 return None
             op, data = data
-            await self.ws.send_json(op, data)
+            await self.ws.send_json_with_op(op=op, data=data)
 
     async def subscribe_to_channel(self, channel, id=''):
-        await self.ws.send_json('sub', data={
+        await self.ws.send_json_with_op(op='sub', data={
             'ch': channel,
             'id': id,
         })

@@ -13,11 +13,13 @@ DEBUG = config.get('DEBUG', False)
 BASE_DIR = os.getcwd()
 KEY_DIR = os.path.join(BASE_DIR, 'ssl_key')
 
-DB_NAME = 'db/db.sqlite3'
+BITMAX_DB_NAME = 'db/bitmax.sqlite3'
+BINANCE_DB_NAME = 'db/binance.sqlite3'
 
 dbconfig = {
     'connections': {
-        'default': f'sqlite://{os.path.join(BASE_DIR, DB_NAME)}'
+        'bitmax': f'sqlite://{os.path.join(BASE_DIR, BITMAX_DB_NAME)}',
+        'binance': f'sqlite://{os.path.join(BASE_DIR, BINANCE_DB_NAME)}',
     },
     'apps': {
         'db': {

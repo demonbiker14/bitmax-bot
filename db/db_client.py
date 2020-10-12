@@ -9,19 +9,6 @@ from .models import Symbol, Order, OrderType, ProcessingOrder, QuickButton
 
 logger = logging.getLogger(f'{general.logger_name}.dbclient')
 
-db_path = os.path.join(general.BASE_DIR, general.DB_NAME)
-
-dbconfig = {
-    'connections': {
-        'default': f'sqlite://{db_path}'
-    },
-    'apps': {
-        'db': {
-            'models': ['db.models'],
-            'default_connection': 'default',
-        }
-    }
-}
 
 class DBClient:
     class NoSymbolExists(Exception):
