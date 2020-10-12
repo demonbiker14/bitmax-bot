@@ -189,6 +189,7 @@ class MarketBot:
             try:
                 await self.ws.handle_messages(close_exc=False)
             except self.ws.WSClosed as exc:
+                await self.ws.__aenter__()
                 continue
 
         return result

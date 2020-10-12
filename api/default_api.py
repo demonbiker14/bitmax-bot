@@ -21,19 +21,33 @@ class DefaultAPI:
         session = aiohttp.ClientSession(headers=headers)
         self.session = session
 
-    async def get_headers(self, path=None):
+    async def get_headers(self, path=None, *args, **kwargs):
         return {}
 
     async def get_api_url(self, *args, **kwargs):
         return self.api_url
 
+    async def get_params(self, path=None, *args, **kwargs):
+        return {}
+
     async def process_method(self, api_url, method, path, params=None, data=None, headers=None, json=True, *args, **kwargs):
         url = api_url + path
         if not headers:
             headers = {}
-        init_headers = await self.get_headers(path)
+        init_headers = await self.get_headers(
+            path, params=None, data=None
+        )
         init_headers.update(headers)
         headers = init_headers
+
+        if not params:
+            params = {}
+        init_params = await self.get_params(
+            path, data=None, headers=None
+        )
+        init_params.update(params)
+        params = init_params
+
 
         if method == 'get':
             response = await self.session.get(url, params=params, headers=headers)
