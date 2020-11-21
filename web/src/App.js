@@ -1,5 +1,6 @@
 import React from 'react';
 import api from './server_api';
+import {BITMAX, BINANCE} from './config';
 import store from './store';
 import { reducer, updated_symbols } from './redux_utils';
 import { Provider } from 'react-redux';
@@ -10,6 +11,14 @@ import { ExchangeRate } from './ExchangeRate';
 import { app_context } from './context';
 import {ImportExport} from './ImportExport';
 
+switch (window.location.pathname) {
+    case '/bitmax':
+        window.stock = BITMAX;
+        break;
+    case '/binance':
+        window.stock = BINANCE;
+        break;
+}
 
 
 class App extends React.Component {
@@ -157,6 +166,13 @@ class Main extends React.Component {
 class Header extends React.Component {
 
     render () {
+        let h2;
+        if (window.stock == BITMAX) {
+            h2 = 'Bitmax';
+        } else if (window.stock == BINANCE) {
+            h2 = 'Binance';
+        }
+
         return (
             <header className="header">
                 <div className="header-show_menu">
@@ -164,6 +180,9 @@ class Header extends React.Component {
                         <i className="fas fa-bars"></i>
                     </button>
                 </div>
+                <h2 className="header-stock_name">
+                    {h2}
+                </h2>
             </header>
         )
     }

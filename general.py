@@ -3,7 +3,15 @@ import sys
 import logging
 import logging.handlers
 import traceback
+from collections import namedtuple
 from config import config
+
+
+#### UTILS ####
+
+
+Product = namedtuple('Product', ('base', 'quote', 'name'))
+
 
 #### DATABASE CONFIG ####
 
@@ -24,18 +32,18 @@ dbconfig = {
     'apps': {
         'db': {
             'models': ['db.models'],
-            'default_connection': 'default',
+            'default_connection': 'bitmax',
         }
     }
 }
 
 #### ROOT LOGGER CONFIG ####
 
-logger_name = 'bitmax_bot'
-logger_file = os.path.join(BASE_DIR, 'logs/bitmax.log')
+logger_name = 'bot'
+logger_file = os.path.join(BASE_DIR, 'logs/crypto.log')
 logger_level = logging.DEBUG if DEBUG else logging.INFO
 logger_formatter = logging.Formatter(
-    r'[%(asctime)s] level=%(levelname)s  %(message)s', r'%H:%M:%S %d.%m.%Y'
+    r'[%(asctime)s] level=%(levelname)s logger=%(name)s %(message)s', r'%H:%M:%S %d.%m.%Y'
 )
 
 root_logger = logging.getLogger(logger_name)
@@ -43,7 +51,7 @@ root_logger.setLevel(logger_level)
 
 if DEBUG:
     stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.logger_level)
+    stream_handler.setLevel(logger_level)
     stream_handler.setFormatter(logger_formatter)
     root_logger.addHandler(stream_handler)
 

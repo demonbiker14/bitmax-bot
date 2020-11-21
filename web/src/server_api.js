@@ -1,17 +1,11 @@
-import {config} from './config';
+import {config, BITMAX, BINANCE} from './config';
 
-// function getPassword() {
-//     let password = window.localStorage.password;
-//     if (!password) {
-//         password = window.prompt('Пароль:');
-//         window.localStorage.password = password;
-//     }
-//     return password;
-// }
+
 
 async function api_method(path, options={}) {
     let url = new URL(config.api_path + path, config.api_url);
     // let password = getPassword();
+
 
     if (options.params) {
         for (let key in options.params) {
@@ -20,6 +14,15 @@ async function api_method(path, options={}) {
     }
 
     // url.searchParams.set('password', password);
+
+    switch (window.stock) {
+        case BITMAX:
+            url.searchParams.set('stock', 'bitmax');
+            break;
+        case BINANCE:
+            url.searchParams.set('stock', 'binance');
+            break;
+    }
 
     let request = fetch(url.toString(), {
         method: options.method,

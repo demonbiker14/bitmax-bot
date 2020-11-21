@@ -1,5 +1,6 @@
 import React from 'react';
 import api from './server_api';
+import {BITMAX, BINANCE} from './config';
 
 export class ExchangeRate extends React.Component {
     constructor (props) {
@@ -11,13 +12,19 @@ export class ExchangeRate extends React.Component {
     }
 
     fetch_rate () {
+        let ticker;
+        if (window.stock === BITMAX) {
+            ticker = 'BTC/USDT';
+        } else if (window.stock === BINANCE) {
+            ticker = 'BTCUSDT';
+        }
         api.api_method('/get/rate', {
             params: {
-                ticker: 'BTC/USDT',
+                ticker: ticker,
             },
         }).then((
             (data) => {
-                let exchange_rate = data.data.data.open;
+                let exchange_rate = data.price;
                 this.setState({
                     exchange_rate: exchange_rate,
                     status: 'loaded',

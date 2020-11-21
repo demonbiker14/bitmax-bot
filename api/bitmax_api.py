@@ -1,17 +1,23 @@
 from .default_api import DefaultAPI, WebSocketAPI, Dispatcher
 from config import config
+from general import Product
 
+
+from collections import namedtuple
 import datetime
 import json
 import pprint
 import logging
 
+
 import asyncio
 import aiohttp
+
 
 import hmac
 import hashlib
 import base64
+
 
 class Util:
     @classmethod
@@ -86,6 +92,7 @@ class BitmaxREST_API(DefaultAPI):
         group_needed = kwargs.get('group_needed', False)
         no_method = kwargs.get('no_method', False)
         method = '' if no_method else 'https://'
+
         if group_needed:
             if not self.account_group:
                 response = await self.get('/info')
@@ -108,7 +115,14 @@ class BitmaxREST_API(DefaultAPI):
 
 
     async def get_all_products(self):
-        return await self.get('/products')
+        result = await self.get('/products')
+        for product in result['data']:
+            product = Product(
+                base=product['baseAsset'],
+                quote=product['quoteAsset'],
+                name=product['symbol']
+            )
+            yield product
 
 
     async def get_headers(self, path, *args, **kwargs):
@@ -142,26 +156,40 @@ class BitmaxREST_API(DefaultAPI):
         result = await self.get(path='/ticker', params={
             'symbol': symbol
         })
-        return result
+        price = result['data']['close']
+        return price
 
 
 class BitmaxWebSocket(WebSocketAPI):
 
-    async def __aenter__(self):
-        headers = Util.make_headers('stream', self._api_token, self._secret)
-        await self.connect_ws(headers)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._headers = Util.make_headers('stream', self._api_token, self._secret)
 
 
-    async def send_json_with_op(self, op, data):
+    async def send_json_with_op(self, op, data, index):
         data['op'] = op
-        await self.send_json(data)
+        await self.send_json(data=data, index=index)
 
 
-    async def handle_firstly(self, message):
+    async def subscribe_to_channel(self, channel, index=None, id=''):
+        if not index:
+            index = 0
+        await self.send_json_with_op(
+            'sub',
+            data={
+                'ch': channel,
+                'id': id,
+            },
+            index=index,
+        )
+
+
+    async def handle_firstly(self, message, index):
         if message['m'] == 'ping':
             if int(message['hp']) < 3:
                 self._logger.warning(message)
-            await self.send_json_with_op(op='pong', data={})
+            await self.send_json_with_op(op='pong', data={}, index=index)
 
 
 if __name__ == '__main__':
@@ -173,37 +201,17 @@ if __name__ == '__main__':
         )
 
         async with api:
-            bitmax_ws = await api.connect_ws()
-
-            await bitmax_ws.__aenter__()
-            print(bitmax_ws.is_closed())
-
-            await bitmax_ws.__aexit__()
-            print(bitmax_ws.is_closed())
-            await bitmax_ws.__aexit__()
-            print(bitmax_ws.is_closed())
-
-            await bitmax_ws.__aenter__()
-            print(bitmax_ws.is_closed())
-
-            await bitmax_ws.__aenter__()
-            print(bitmax_ws.is_closed())
-
-
-            await bitmax_ws.__aexit__()
-            print(bitmax_ws.is_closed())
-
-
+            result = await api.get_all_products()
+            pprint.pprint(result)
+            # bitmax_ws = await api.connect_ws()
             # async with bitmax_ws:
-                # account = await api.get('/info')
-                # await bitmax_ws.send_json_with_op('sub', data={
-                #     'ch': 'depth:BTMX/USDT'
-                # })
-                # global previous_ts
-                # previous_ts = 0
-                # await bitmax_ws.handle_messages()
-                # await bitmax_ws.handle_messages()
-                # print(await bitmax_ws.receive_json())
+            #     @bitmax_ws.add_dispatcher()
+            #     async def handler(data):
+            #         print(data)
+            #     await bitmax_ws.send_json_with_op('sub', data={
+            #         'ch': 'bbo:BTMX/USDT'
+            #     })
+            #     await bitmax_ws.handle_messages()
 
 
     asyncio.run(main())

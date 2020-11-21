@@ -8,10 +8,10 @@ logs/*
 logs/**/*
 *.tar.xz
 nohup.out
-*.dump
 access_to_git
 access_to_git.pub
 manual
 *.pid
 config
 ssl_key/*
+.idea/**

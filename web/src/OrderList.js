@@ -1,7 +1,7 @@
 import React from 'react';
 import api from './server_api';
 import { QuickButton } from './ButtonList';
-import { BUY, SELL } from './config';
+import { BUY, SELL, BITMAX } from './config';
 
 
 class OrderList extends React.Component {

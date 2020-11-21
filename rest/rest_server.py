@@ -1,214 +1,189 @@
 from aiohttp import web, web_exceptions
-from config import config
-from db.models import Symbol, OrderType, Order
+from db.models import Symbol, Order
 
 import asyncio
-import aiohttp
 import general
 import json
 import logging
 import math
-import tempfile
-import subprocess
-import os
-import os.path
-import ssl
 
 logger = logging.getLogger(f'{general.logger_name}.web')
+logger.setLevel(logging.DEBUG)
 handler = logging.FileHandler('logs/web.log', mode='a+')
 handler.setFormatter(general.logger_formatter)
 logger.addHandler(handler)
 
 DB_PATH = 'db/db.sqlite3'
 
-api_config = config['SERVER_API']
 
 class RestServer:
     class NotUSDTError(Exception):
         pass
 
-    def __init__(self, password, bot, host=api_config['HOST'], port=api_config['PORT']):
-        self._host = host
-        self._port = port
-        self._password = password
+
+    def get_bot(self, stock_name):
+        if stock_name == 'bitmax':
+            return self.bot.bitmax_bot
+        elif stock_name == 'binance':
+            return self.bot.binance_bot
+        else:
+            raise ValueError()
+
+
+    def __init__(self, config, bot):
+        self._host = config['HOST']
+        self._port = config['PORT']
         self._app = web.Application(middlewares=[
-            # self.password_middleware,
-            self.blocking_middleware,
+            self.choose_stock_middleware,
             self.cors_middleware,
-        ])
+        ], logger=logger)
         self._prefix = '/api'
         self.bot = bot
-        # self.ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        # self.ssl_context.load_cert_chain(
-        #     os.path.join(general.KEY_DIR, 'key.crt'),
-        #     os.path.join(general.KEY_DIR, 'key.key'),
-        # )
         self.set_views()
 
-    # @web.middleware
-    # async def password_middleware(self, request, handler):
-    #     password = request.query.get('password')
-    #     if password == self._password:
-    #         try:
-    #             response = await handler(request)
-    #             return response
-    #         except Exception as exc:
-    #             logger.debug(request)
-    #             logger.exception(exc)
-    #             raise exc
-    #     else:
-    #         return web.Response(body='not allowed', status=403)
 
     @web.middleware
-    async def blocking_middleware(self, request, handler):
-        if not self.bot.dbclient.closed or not self.bot.stopped:
-            try:
-                response = await handler(request)
-                return response
-            except Exception as exc:
-                logger.error(request)
-                logger.exception(exc)
-                raise exc
-        else:
-            print(self.bot.dbclient.closed, self.bot.stopped)
-            logger.warning('DB closed')
-            return web.Response(status=500, body='')
+    async def choose_stock_middleware(self, request, handler):
+        stock = request.query.get('stock')
+        if not stock:
+            raise ValueError()
+        request.stock_name = stock
+        request.bot = self.get_bot(stock)
+        response = await handler(request)
+        return response
+
 
     @web.middleware
     async def cors_middleware(self, request, handler):
-        try:
-            response = await handler(request)
-            # print(response)
-        except Exception as exc:
-            logger.error(request)
-            logger.exception(exc)
-            raise exc
+        response = await handler(request)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 
+
     async def get_user_info(self, request):
-        response = await self.bot.bitmax_api.get('/info')
+        response = await request.bot.api.get('/info')
         return web.json_response(response)
 
+
     async def update_symbols_handler(self, request):
-        await self.bot.update_symbols()
+        await request.bot.update_symbols()
         data = {'data':[]}
-        async for symbol in await self.bot.dbclient.list_symbols():
+        async for symbol in await request.bot.dbclient.list_symbols():
             data['data'].append(await symbol.to_dict())
         return web.json_response(data)
 
-    async def update_symbol(self, request):
+
+    async def update_symbol_handler(self, request):
         pk = request.match_info['pk']
         data = await request.json()
-        symbol = await Symbol.get_or_none(pk=int(pk))
+        symbol = await request.bot.dbclient.get_order_by_pk(int(pk))
         if symbol:
-            try:
-                symbol.update_from_dict(data)
-                await symbol.save()
-            except Exception as exc:
-                logger.exception(exc)
-                raise exc
+            await symbol.update_from_dict(data)
+            await symbol.save()
         else:
             symbol = {}
         return web.json_response({
             'data': await symbol.to_dict(),
         })
 
+
     async def options_handler(self, request):
         response = web.Response()
         response.headers['Access-Control-Allow-Methods'] = 'DELETE'
         return response
+
 
     async def delete_handler(self, request):
         object = request.match_info['object']
         if object == 'order':
             order_pk = request.match_info['id']
             if order_pk == 'all':
-                await Order.all().delete()
+                await request.bot.delete_all_orders()
             else:
-                order = await self.bot.dbclient.delete_order(int(order_pk))
-            # print(order.to_str())
+                await request.bot.delete_order(int(order_pk))
             return web.json_response({})
         elif object == 'button':
             button_pk = request.match_info['id']
-            button = await self.bot.dbclient.delete_button(int(button_pk))
+            button = await request.bot.dbclient.delete_button(int(button_pk))
             return web.json_response({})
         else:
             raise web_exceptions.HTTPNotFound(reason='Unknown object')
 
+
     async def list_handler(self, request):
         objects = request.match_info['objects']
         if objects == 'orders':
-
-            orders = await self.bot.dbclient.list_orders()
+            orders = await request.bot.dbclient.list_orders()
             data = []
             async for order in orders:
                 data.append(await order.to_dict())
             data = {
                 'data': data
             }
-
         elif objects == 'symbols':
-            symbols = await self.bot.dbclient.list_symbols()
+            symbols = await request.bot.dbclient.list_symbols()
             data = []
             async for symbol in symbols:
                 data.append(await symbol.to_dict())
             data = {
                 'data': data
             }
-
         elif objects == 'buttons':
-            buttons = await self.bot.dbclient.list_buttons()
+            buttons = await request.bot.dbclient.list_buttons()
             data = []
             async for button in buttons:
                 data.append(await button.to_dict())
             data = {
                 'data': data
             }
-
         else:
             raise web_exceptions.HTTPNotFound(reason="Unknown object")
 
         return web.json_response(data)
 
+
     async def get_handler(self, request):
         object = request.match_info['object']
+        data = None
         if object == 'rate':
             ticker = request.query.get('ticker')
             if not ticker:
                 raise ValueError('No params provided')
-            rate = await self.bot.bitmax_api.get_rate(ticker)
-            data = {'data':rate}
+            try:
+                price = await request.bot.api.get_rate(ticker)
+                data = {'price': price}
+            except KeyError:
+                data = {'error' : 'No such symbol'}
         return web.json_response(data)
+
 
     async def post_handler(self, request):
         object = request.match_info['object']
         if object == 'order':
             data = await request.json()
             first, second = data['symbol'].split('/')
-            if second != 'USDT':
+            if request.stock_name == 'bitmax' and second != 'USDT':
                 raise self.NotUSDTError(data['symbol'])
-            rate = await self.bot.bitmax_api.get_rate(data['symbol'])
-
-            symbol = await self.bot.dbclient.get_symbol(first, second)
 
             trigger_price = float(data['trigger_price'])
             price = float(data['price'])
             order_type = data['order_type']
-            volume = math.ceil(float(data['volume']) / price)
-            # correct_volume = floatvolume * rate
+            symbol = await request.bot.dbclient.get_symbol(first, second)
+            volume = float(data['volume'])
+            rate = await request.bot.api.get_rate(symbol.ticker)
+            volume /= float(rate)
 
-            try:
-                order = await self.bot.dbclient.add_order(
-                    symbol=symbol,
-                    order_type=order_type,
-                    trigger_price=trigger_price,
-                    price=price,
-                    volume=volume
-                )
-            except Exception as exc:
-                logger.exception(exc)
-                raise exc
+
+            volume = math.ceil(volume)
+
+            order = await request.bot.add_order(
+                symbol=symbol,
+                order_type=order_type,
+                trigger_price=trigger_price,
+                price=price,
+                volume=volume
+            )
+
             return web.json_response(await order.to_dict())
 
         elif object == 'button':
@@ -217,7 +192,7 @@ class RestServer:
             order_type = int(button['order_type'])
             volume = float(button['volume'])
 
-            new_button = await self.bot.dbclient.add_button(
+            new_button = await request.bot.dbclient.add_button(
                 order_type=order_type,
                 volume=volume
             )
@@ -227,8 +202,9 @@ class RestServer:
         else:
             raise web_exceptions.HTTPNotFound(reason="Unknown object")
 
+
     async def download_db(self, request):
-        orders = await (await self.bot.dbclient.list_orders())
+        orders = await (await request.bot.dbclient.list_orders())
         data = {'orders':[]}
 
         for order in orders:
@@ -246,6 +222,7 @@ class RestServer:
 
         return response
 
+
     async def upload_db(self, request):
         reader = await request.multipart()
         while True:
@@ -255,11 +232,10 @@ class RestServer:
             if part.name == 'file':
                 if not part.filename:
                     raise web_exceptions.HTTPBadRequest()
-
                 data = json.loads(await part.text())
                 for order in data['orders']:
                     first, second = order['symbol'].split('/')
-                    symbol = await self.bot.dbclient.get_symbol(first, second)
+                    symbol = await request.bot.dbclient.get_symbol(first, second)
 
                     trigger_price = float(order['trigger_price'])
                     price = float(order['price'])
@@ -267,7 +243,7 @@ class RestServer:
                     volume = float(order['volume'])
 
                     try:
-                        order = await self.bot.dbclient.add_order(
+                        order = await request.bot.dbclient.add_order(
                             symbol=symbol,
                             order_type=order_type,
                             trigger_price=trigger_price,
@@ -277,8 +253,6 @@ class RestServer:
                     except Exception as exc:
                         logger.exception(exc)
                         raise exc
-
-
         return web.Response(text='response')
 
 
@@ -286,17 +260,17 @@ class RestServer:
         views = [
             web.get(self._prefix + '/list/{objects}', self.list_handler),
             web.get(self._prefix + '/get/{object}', self.get_handler),
-            # web.get(self._prefix + '/get/')
             web.get(self._prefix + '/user/info', self.get_user_info),
             web.get(self._prefix + '/download/db', self.download_db),
             web.post(self._prefix + '/post/{object}', self.post_handler),
-            web.post(self._prefix + '/update/symbol/{pk}', self.update_symbol),
+            web.post(self._prefix + '/update/symbol/{pk}', self.update_symbol_handler),
             web.post(self._prefix + '/update/symbols', self.update_symbols_handler),
             web.post(self._prefix + '/upload/db', self.upload_db),
             web.delete(self._prefix + '/delete/{object}/{id}', self.delete_handler),
             web.route('OPTIONS', self._prefix + '/delete/{object}/{id}', self.options_handler),
         ]
         self._app.add_routes(views)
+
 
     async def run(self):
         runner = web.AppRunner(self._app)
@@ -305,18 +279,7 @@ class RestServer:
             runner,
             self._host,
             self._port,
-            # ssl_context=self.ssl_context
         )
         await site.start()
         while True:
             await asyncio.sleep(60*60)
-
-
-
-
-if __name__ == '__main__':
-    # async def main():
-    server = RestServer(config['REST']['PASSWORD'])
-    asyncio.run_forever(server.run())
-    # server.run()
-    # asyncio.run(main(), debug=True)

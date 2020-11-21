@@ -85,8 +85,20 @@ body {
     width: 100%;
     padding: 0.3rem 0.6rem;
     background-color: #2662ac;
+    display: -webkit-flex;
+    display: -ms-flex;
+    display: flex;
+    -webkit-flex-direction: row;
+    -ms-flex-direction: row;
+    flex-direction: row;
 }
 
+.header-stock_name{
+    margin-left: 5rem;
+    color: white;
+    text-transform: uppercase;
+    font-weight: bolder;
+}
 
 .header-show_menu button{
     cursor: pointer;

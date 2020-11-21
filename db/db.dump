@@ -1,0 +1,56 @@
+------------- SQLite3 Dump File -------------
+
+-- ------------------------------------------
+-- Dump of "order"
+-- ------------------------------------------
+
+CREATE TABLE "order"(
+	"id" Integer NOT NULL PRIMARY KEY,
+	"symbol_id" Integer NOT NULL,
+	"order_type" Integer NOT NULL,
+	"trigger_price" Double NOT NULL,
+	"volume" Double NOT NULL,
+	"price" Double NOT NULL,
+	"add_timestamp" Integer,
+	CONSTRAINT "lnk_symbol_order" FOREIGN KEY ( "symbol_id" ) REFERENCES "symbol"( "id" )
+		ON DELETE Restrict
+ );
+
+CREATE INDEX "index_symbol_id" ON "order"( "symbol_id" );
+
+-- ------------------------------------------
+-- Dump of "processing_order"
+-- ------------------------------------------
+
+CREATE TABLE "processing_order"(
+	"id" Integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+	"order_id" Text,
+	"symbol_id" Integer NOT NULL,
+	"order_type" Integer NOT NULL,
+	"status" Integer NOT NULL,
+	"price" Double NOT NULL,
+	"volume" Double NOT NULL );
+
+CREATE INDEX "index_symbol_id1" ON "processing_order"( "symbol_id" );
+
+-- ------------------------------------------
+-- Dump of "quick_button"
+-- ------------------------------------------
+
+CREATE TABLE "quick_button"(
+	"id" Integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+	"order_type" Integer NOT NULL,
+	"volume" Double NOT NULL );
+
+
+-- ------------------------------------------
+-- Dump of "symbol"
+-- ------------------------------------------
+
+CREATE TABLE "symbol"(
+	"id" Integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+	"first" Text NOT NULL,
+	"second" Text NOT NULL,
+	"ticker" Text NOT NULL );
+
+

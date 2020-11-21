@@ -1,5 +1,7 @@
 import asyncio
 import aiohttp
+import random
+
 
 import collections
 
@@ -73,10 +75,14 @@ class DefaultAPI:
         if method == 'get':
             response = await self.session.get(url, params=params, headers=headers)
         elif method == 'post':
-            # print(url, data, params, headers, sep='\n')
-            response = await self.session.post(url, json=data, params=params, headers=headers)
+            if data is dict:
+                response = await self.session.post(url, json=data, params=params, headers=headers)
+            else:
+                response = await self.session.post(url, data=data, params=params, headers=headers)
         elif method == 'delete':
             response = await self.session.delete(url, params=params, headers=headers)
+        elif method == 'put':
+            response = await self.session.put(url, params=params, headers=headers)
         if json:
             response = await response.json()
         return response
@@ -92,12 +98,16 @@ class DefaultAPI:
         return response
 
 
-    async def post(self, path, data, headers=None, params=None, *args, **kwargs):
+    async def post(self, path, data={}, headers=None, params=None, *args, **kwargs):
         return await self.process_api_method('post', path, data=data, params=params, headers=headers, *args, **kwargs)
 
 
-    async def delete(self, path, data, headers=None, *args, **kwargs):
+    async def delete(self, path, data, headers=None, params=None, *args, **kwargs):
         return await self.process_api_method('delete', path, data=data, params=params, headers=headers, *args, **kwargs)
+
+
+    async def connect_ws(self):
+        raise NotImplementedError()
 
 class WebSocketAPI:
     class WSClosed(Exception):
@@ -105,11 +115,30 @@ class WebSocketAPI:
 
     _dispatchers = None
 
-    def __init__(self, url, api):
+    def __init__(self, url, api, connection_num=1):
         self._url = url
         self._api = api
         self._dispatchers = []
         self._logger = api._logger
+        self._connection_num = connection_num
+        self._headers = {}
+
+
+    async def __aenter__(self):
+        self.ws_pool = []
+        async def add_ws(self):
+            self.ws_pool.append(await self.connect_ws(self._headers))
+        add_tasks = [add_ws(self) for i in range(self._connection_num)]
+        await asyncio.gather(*add_tasks)
+
+
+    async def __aexit__(self, *args, **kwargs):
+        for ws in self.ws_pool:
+            await ws.close()
+
+
+    async def connect_ws(self, headers):
+        return await self._session.ws_connect(self._url, headers=headers)
 
 
     @property
@@ -127,8 +156,8 @@ class WebSocketAPI:
         return self._api.session
 
 
-    def is_closed(self):
-        return self._ws_connection.closed
+    def is_closed(self, index):
+        return self.ws_pool[index].closed
 
 
     def add_dispatcher(self, name=None):
@@ -141,65 +170,52 @@ class WebSocketAPI:
         return decorator
 
 
-    async def connect_ws(self, headers):
-        self._ws_connection = await self._session.ws_connect(self._url, headers=headers)
+    def get_random_ws_index(self):
+        return random.choice(list(range(len(self.ws_pool))))
 
 
-    async def __aenter__(self):
-        await self.connect_ws(headers)
+    async def send_json(self, index, data):
+        await self.ws_pool[index].send_json(data)
 
 
-    async def __aexit__(self, *args, **kwargs):
-        await self._ws_connection.close()
-
-
-    async def send_json(self, data):
-        await self._ws_connection.send_json(data)
-
-
-    async def receive_json(self):
-        response = await self._ws_connection.receive_json()
+    async def receive_json(self, index):
+        response = await self.ws_pool[index].receive_json()
         return response
 
 
-    async def handle_firstly(self, message):
+    async def handle_firstly(self, message, index):
         pass
 
-    async def dispatch(self, message):
-        try:
-            data = message.json()
-            asyncio.create_task(self.handle_firstly(data))
-            for dispatcher in self._dispatchers:
-                asyncio.create_task(dispatcher.func(data))
-        except ValueError as exc:
-            self._logger.exception(exc)
-            raise exc
 
-    async def handle_messages(self, close_exc=True):
+    async def dispatch(self, message, index):
+        data = message.json()
+        asyncio.create_task(self.handle_firstly(data, index))
+        for dispatcher in self._dispatchers:
+            asyncio.create_task(dispatcher.func(data))
+
+
+    async def handle_one_ws(self, index):
         while True:
-            try:
-                if self.is_closed():
-                    raise self.WSClosed('Handling: WebSocket apparently closed')
-                message = await self._ws_connection.receive()
-                if message.type in (
-                    aiohttp.WSMsgType.CLOSE,
-                    aiohttp.WSMsgType.CLOSED,
-                    aiohttp.WSMsgType.CLOSING,
-                ):
-                    exc = self.WSClosed(f'Dispatch: WebSocket apparently closed\n{message}')
-                    self._logger.error(message)
-                    raise exc
-                elif message.type != aiohttp.WSMsgType.TEXT:
-                    exc = ValueError(f'Non-text message\n{message}')
-                    self._logger.exception(exc)
-                    raise exc
-                await self.dispatch(message)
-            except self.WSClosed as exc:
-                self._logger.exception(exc)
-                if close_exc:
-                    raise exc
-                await self.__aenter__()
-                continue
-            except Exception as exc:
-                self._logger.exception(exc)
+            message = await self.ws_pool[index].receive()
+            if message.type in (
+                aiohttp.WSMsgType.CLOSE,
+                aiohttp.WSMsgType.CLOSED,
+                aiohttp.WSMsgType.ERROR
+            ):
+                exc = self.WSClosed(f'Dispatch: WebSocket apparently closed\n{message}')
                 raise exc
+            elif message.type != aiohttp.WSMsgType.TEXT:
+                exc = ValueError(f'Non-text message\n{message}')
+                raise exc
+            await self.dispatch(message, index)
+
+
+    async def handle_messages(self):
+        handlers = [self.handle_one_ws(i) for i in range(self._connection_num)]
+        handling_tasks = asyncio.gather(*handlers)
+
+        try:
+            await handling_tasks
+        except Exception as exc:
+            handling_tasks.cancel()
+            raise exc
