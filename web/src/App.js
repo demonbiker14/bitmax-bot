@@ -11,13 +11,10 @@ import { ExchangeRate } from './ExchangeRate';
 import { app_context } from './context';
 import {ImportExport} from './ImportExport';
 
-switch (window.location.pathname) {
-    case '/bitmax':
-        window.stock = BITMAX;
-        break;
-    case '/binance':
-        window.stock = BINANCE;
-        break;
+if (window.location.pathname.startsWith('/bitmax')) {
+    window.stock = BITMAX;
+} else if (window.location.pathname.startsWith('/binance'))  {
+    window.stock = BINANCE;
 }
 
 
