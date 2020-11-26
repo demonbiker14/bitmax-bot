@@ -184,7 +184,7 @@ class BinanceBot(AbstractBot):
     async def handle_order_updates(self):
         @self.order_ws.add_dispatcher('orders_handler')
         async def handler(msg):
-            print(msg)
+            self._logger.info(msg)
         while True:
             try:
                 await self.order_ws.handle_messages()

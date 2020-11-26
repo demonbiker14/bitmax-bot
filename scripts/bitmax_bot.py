@@ -123,7 +123,7 @@ class BitmaxBot(AbstractBot):
 
         try:
             if '/' not in symbol:
-                self._logger.debug(f'Improper symbol: {symbol}')
+                # self._logger.debug(f'Improper symbol: {symbol}')
                 return None
             symbol = await self.dbclient.get_symbol(*symbol.split('/'))
         except self.dbclient.NoSymbolExists:
