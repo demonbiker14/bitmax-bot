@@ -87,14 +87,17 @@ class BinanceREST_API(DefaultAPI):
     async def connect_to_orders_ws(self):
         addr = '/userDataStream'
         result = await self.post(addr, data={}, api_type='api', time_needed=False, signature_needed=False)
-        key = result['listenKey']
+        key = result.get('listenKey')
+        if not key:
+            self._logger.error(f'In connect_to_order_ws: {result}')
+            raise ValueError('No key was got')
         ws_addr = f'{self.ws_url}?streams={key}'
         ws = await self.connect_ws(ws_addr)
-        asyncio.create_task(self.keepalive(ws, key))
+        self.keepalive_task = asyncio.create_task(self.keepalive(key))
         return ws
 
 
-    async def keepalive(self, ws, key):
+    async def keepalive(self, key):
         addr = '/userDataStream'
         timedelta = 30 * 60
         while True:

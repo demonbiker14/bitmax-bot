@@ -34,9 +34,9 @@ class BinanceBot(AbstractBot):
         await self.api.__aenter__()
 
         self.ws = await self.api.connect_ws()
-        self.order_ws = await self.api.connect_to_orders_ws()
+        # self.order_ws = await self.api.connect_to_orders_ws()
         await self.ws.__aenter__()
-        await self.order_ws.__aenter__()
+        # await self.order_ws.__aenter__()
 
         await self.sms.__aenter__()
         await self.dbclient.__aenter__()
@@ -44,7 +44,7 @@ class BinanceBot(AbstractBot):
     async def __aexit__(self, *args, **kwargs):
         await self.sms.__aexit__(*args, **kwargs)
         await self.ws.__aexit__(*args, **kwargs)
-        await self.order_ws.__aexit__(*args, **kwargs)
+        # await self.order_ws.__aexit__(*args, **kwargs)
         await self.api.__aexit__(*args, **kwargs)
         await self.dbclient.__aexit__(*args, **kwargs)
 
@@ -223,7 +223,7 @@ class BinanceBot(AbstractBot):
         try:
             tasks = asyncio.gather(*[
                 self.handle_data(),
-                self.handle_order_updates(),
+                # self.handle_order_updates(),
             ])
             await tasks
         except Exception as exc:

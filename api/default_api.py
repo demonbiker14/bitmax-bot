@@ -75,7 +75,7 @@ class DefaultAPI:
         if method == 'get':
             response = await self.session.get(url, params=params, headers=headers)
         elif method == 'post':
-            if data is dict:
+            if isinstance(data, dict):
                 response = await self.session.post(url, json=data, params=params, headers=headers)
             else:
                 response = await self.session.post(url, data=data, params=params, headers=headers)

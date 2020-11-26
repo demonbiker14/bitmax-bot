@@ -17,7 +17,6 @@ Product = namedtuple('Product', ('base', 'quote', 'name'))
 
 DEBUG = config.get('DEBUG', False)
 
-
 BASE_DIR = os.getcwd()
 KEY_DIR = os.path.join(BASE_DIR, 'ssl_key')
 
