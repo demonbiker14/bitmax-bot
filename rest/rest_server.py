@@ -170,8 +170,7 @@ class RestServer:
             order_type = data['order_type']
             symbol = await request.bot.dbclient.get_symbol(first, second)
             volume = float(data['volume'])
-            rate = await request.bot.api.get_rate(symbol.ticker)
-            volume *= float(rate)
+            volume *= price
 
 
             volume = math.ceil(volume)
