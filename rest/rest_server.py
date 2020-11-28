@@ -171,7 +171,7 @@ class RestServer:
             symbol = await request.bot.dbclient.get_symbol(first, second)
             volume = float(data['volume'])
             rate = await request.bot.api.get_rate(symbol.ticker)
-            volume /= float(rate)
+            volume *= float(rate)
 
 
             volume = math.ceil(volume)
