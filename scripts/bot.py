@@ -84,7 +84,7 @@ if __name__ == '__main__':
             sms_config=config['SMS'],
             server_config=config['SERVER_API'],
         )
-        async with bot:
-            while True:
+        while True:
+            async with bot:
                 await bot.run()
     asyncio.run(main())
