@@ -176,7 +176,7 @@ class BinanceREST_API(DefaultAPI):
         }
         if order_type == 'LIMIT':
             data['price'] = str(price)
-        path = '/order/test'
+        path = '/order'
         resp = await self.post(
             path=path, params=data, api_type='api', signature_needed=True, time_needed=True
         )
