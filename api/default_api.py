@@ -75,9 +75,11 @@ class DefaultAPI:
         if method == 'get':
             response = await self.session.get(url, params=params, headers=headers)
         elif method == 'post':
-            if isinstance(data, dict):
+            if isinstance(data, dict) and data:
                 response = await self.session.post(url, json=data, params=params, headers=headers)
             else:
+                if not data:
+                    data = None
                 response = await self.session.post(url, data=data, params=params, headers=headers)
         elif method == 'delete':
             response = await self.session.delete(url, params=params, headers=headers)

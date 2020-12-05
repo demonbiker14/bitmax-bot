@@ -25,7 +25,7 @@ class MarketBot:
         self._sms_config = sms_config
         self._logger_name = f'{general.logger_name}'
         self._logger = logging.getLogger(self._logger_name)
-
+        self.api_server = RestServer(config=self._server_config, bot=self)
 
     async def __aenter__(self):
         self._tasks = asyncio.Queue()
@@ -47,29 +47,27 @@ class MarketBot:
         await self.bitmax_bot.__aenter__()
         await self.binance_bot.__aenter__()
 
-
     async def __aexit__(self, *args, **kwargs):
         await self.bitmax_bot.__aexit__(*args, **kwargs)
         await self.binance_bot.__aexit__(*args, **kwargs)
         await self.dbclient_wrapper.__aexit__(*args, **kwargs)
 
-
-
-    async def api_server(self):
-        self.api_server = RestServer(config=self._server_config, bot=self)
+    async def run_api_server(self):
         await self.api_server.run()
 
-
     async def run(self):
-        self.server_task = self.api_server()
+        self.server_task = self.run_api_server()
         self.bitmax_bot_task = self.bitmax_bot.run()
         self.binance_bot_task = self.binance_bot.run()
-        self.running = asyncio.gather(
-            self.server_task,
-            self.bitmax_bot_task,
-            self.binance_bot_task,
-        )
-        await self.running
+        try:
+            self.running = asyncio.gather(
+                self.server_task,
+                self.bitmax_bot_task,
+                self.binance_bot_task,
+            )
+            await self.running
+        finally:
+            await self.api_server.graceful_shutdown()
 
 
 if __name__ == '__main__':

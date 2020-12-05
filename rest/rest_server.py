@@ -40,6 +40,7 @@ class RestServer:
         self._prefix = '/api'
         self.bot = bot
         self.set_views()
+        self.runner = web.AppRunner(self._app)
 
 
     @web.middleware
@@ -121,7 +122,9 @@ class RestServer:
                 'data': data
             }
         elif objects == 'symbols':
-            symbols = await request.bot.dbclient.list_symbols()
+            symbols = (await request.bot.dbclient.list_symbols()).filter(
+                second__in=request.bot._stock_config['FILTER_QUOTES']
+            )
             data = []
             async for symbol in symbols:
                 data.append(await symbol.to_dict())
@@ -270,13 +273,16 @@ class RestServer:
 
 
     async def run(self):
-        runner = web.AppRunner(self._app)
-        await runner.setup()
+        await self.runner.setup()
         site = web.TCPSite(
-            runner,
+            self.runner,
             self._host,
             self._port,
         )
         await site.start()
         while True:
             await asyncio.sleep(60*60)
+
+
+    async def graceful_shutdown(self):
+        await self.runner.cleanup()

@@ -165,21 +165,21 @@ class BinanceREST_API(DefaultAPI):
             order_type,
             order_side,
             price=None,
-            time_in_force='GTC'
+            time_in_force='GTC',
     ):
-        timestamp = int(datetime.datetime.now().timestamp() * 1000)
         data = {
             'symbol': symbol,
-            'timestamp': timestamp,
-            'quantity': size,
+            'quantity': str(size),
             'type': order_type,
             'side': order_side,
             'timeInForce': time_in_force,
         }
         if order_type == 'LIMIT':
-            data['price'] = price
-        test_path = '/order'
-        resp = await self.post(path=test_path, params=data, api_type='api', signature_needed=True)
+            data['price'] = str(price)
+        path = '/order/test'
+        resp = await self.post(
+            path=path, params=data, api_type='api', signature_needed=True, time_needed=True
+        )
         return resp
 
 
@@ -199,7 +199,6 @@ class BinanceREST_API(DefaultAPI):
 
 
 class BinanceWebSocket(WebSocketAPI):
-
 
     async def subscribe_to_channels(self, channels, index=None, id=1):
         if not index:

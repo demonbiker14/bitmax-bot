@@ -102,8 +102,8 @@ class BinanceBot(AbstractBot):
         order_side = 'BUY' if order.order_type == OrderType.BUY else 'SELL'
         result = await self.api.place_order(
             symbol=symbol.ticker,
-            price=str(order.price),
-            size=str(order.volume),
+            price=order.price,
+            size=order.volume,
             order_type=ot,
             order_side=order_side,
         )
@@ -119,7 +119,7 @@ class BinanceBot(AbstractBot):
                     damping_left=damp_count,
                 ))
         elif result['code'] == 0:
-            order_id = result['data']['info']['orderId']
+            order_id = result['data']['orderId']
             p_order.order_id = order_id
             await p_order.save()
             return result
@@ -157,7 +157,6 @@ class BinanceBot(AbstractBot):
                     return None
 
                 bid_orders, ask_orders, symbol = orders
-
                 if bid_orders:
                     async for order in bid_orders:
                         p_order = await self.dbclient.make_processing(order, None)
