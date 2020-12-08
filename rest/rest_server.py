@@ -27,7 +27,7 @@ class RestServer:
         elif stock_name == 'binance':
             return self.bot.binance_bot
         else:
-            raise ValueError()
+            raise ValueError(stock_name)
 
 
     def __init__(self, config, bot):

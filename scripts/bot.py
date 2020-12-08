@@ -73,7 +73,6 @@ class MarketBot:
 if __name__ == '__main__':
     from general import dbconfig
     from config import config
-    import pprint
     async def main():
         bot = MarketBot(
             dbconfig=dbconfig,
@@ -83,6 +82,10 @@ if __name__ == '__main__':
             server_config=config['SERVER_API'],
         )
         while True:
-            async with bot:
-                await bot.run()
+            try:
+                async with bot:
+                    await bot.run()
+            except Exception as exc:
+                general.root_logger.exception(exc)
+            await asyncio.sleep(200)
     asyncio.run(main())
