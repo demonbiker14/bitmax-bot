@@ -1,7 +1,7 @@
 import React from 'react';
 import api from './server_api';
 import { QuickButton } from './ButtonList';
-import { BUY, SELL, BITMAX } from './config';
+import { BUY, SELL, BITMAX, BINANCE} from './config';
 
 
 class OrderList extends React.Component {
@@ -468,7 +468,7 @@ export class NewOrder extends React.Component {
                             <label className="form_field-label" htmlFor="symbol">Пара</label>
                             <table className="form_field-content">
                                 <tbody>
-                                    { this.list_symbols(5).map((
+                                    { this.list_symbols((stock == BINANCE ? 9 : 5)).map((
                                         (column, index) => (
                                             <tr className="row" key={index.toString()}>
                                                 { column.map((
