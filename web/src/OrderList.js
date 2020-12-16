@@ -468,7 +468,7 @@ export class NewOrder extends React.Component {
                             <label className="form_field-label" htmlFor="symbol">Пара</label>
                             <table className="form_field-content">
                                 <tbody>
-                                    { this.list_symbols((window.stock === BINANCE ? 9 : 5)).map((
+                                    { this.list_symbols((window.stock === BINANCE ? 11 : 5)).map((
                                         (column, index) => (
                                             <tr className="row" key={index.toString()}>
                                                 { column.map((
