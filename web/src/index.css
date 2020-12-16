@@ -421,10 +421,11 @@ body {
 }
 
 .option label {
-    padding: 0.2rem 0.3rem;
+    padding: 0.1rem 0.2rem;
     width: 100%;
     display: block;
     cursor: pointer;
+    font-size: 0.9rem;
 }
 
 .option input {
