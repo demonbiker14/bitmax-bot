@@ -95,18 +95,18 @@ class RestServer:
 
 
     async def delete_handler(self, request):
-        object = request.match_info['object']
-        if object == 'order':
+        obj = request.match_info['object']
+        if obj == 'order':
             order_pk = request.match_info['id']
             if order_pk == 'all':
                 await request.bot.delete_all_orders()
             else:
                 await request.bot.delete_order(int(order_pk))
             return web.json_response({})
-        elif object == 'button':
+        elif obj == 'button':
             button_pk = request.match_info['id']
             button = await request.bot.dbclient.delete_button(int(button_pk))
-            return web.json_response({})
+            return web.json_response({'ok': 1})
         else:
             raise web_exceptions.HTTPNotFound(reason='Unknown object')
 
@@ -146,9 +146,9 @@ class RestServer:
 
 
     async def get_handler(self, request):
-        object = request.match_info['object']
+        obj = request.match_info['object']
         data = None
-        if object == 'rate':
+        if obj == 'rate':
             ticker = request.query.get('ticker')
             if not ticker:
                 raise ValueError('No params provided')
@@ -161,8 +161,8 @@ class RestServer:
 
 
     async def post_handler(self, request):
-        object = request.match_info['object']
-        if object == 'order':
+        obj = request.match_info['object']
+        if obj == 'order':
             data = await request.json()
             first, second = data['symbol'].split('/')
             if request.stock_name == 'bitmax' and second != 'USDT':
@@ -186,7 +186,7 @@ class RestServer:
 
             return web.json_response(await order.to_dict())
 
-        elif object == 'button':
+        elif obj == 'button':
             button = await request.json()
 
             order_type = int(button['order_type'])

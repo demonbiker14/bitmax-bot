@@ -31,7 +31,7 @@ html, body, .wrapper-2 {
 }
 
 .wrapper {
-    transition: transform ease-out 0.15s;
+    transition: transform ease-out 0.08s;
 }
 
 .wrapper.menu_closed {
@@ -96,12 +96,13 @@ body {
     color: white;
     text-transform: uppercase;
     font-weight: bolder;
+    font-size: 1.8rem;
 }
 
 .header-show_menu button{
     cursor: pointer;
     color: white;
-    font-size: 1.5rem;
+    font-size: 1.8rem;
 }
 
 .global_title {

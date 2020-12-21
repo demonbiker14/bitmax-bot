@@ -107,7 +107,7 @@ class DBClient(AbstractDBClient):
     async def delete_button(self, pk):
         button = await QuickButton.get_or_none(pk=pk).using_db(self._connection)
         if button:
-            await button.delete()
+            await button.delete(using_db=self._connection)
         else:
             raise self.NoButtonExists(str(pk))
         return button
